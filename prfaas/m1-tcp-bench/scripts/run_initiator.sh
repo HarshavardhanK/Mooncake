@@ -79,15 +79,31 @@ if [[ ! -s "$csv" ]]; then
   echo "timestamp,profile,rtt_ms,loss_pct,bw_mbit,op,block_size,threads,batch_size,slice_size,conn_pool,roundrobin,duration_s,goodput_gbps,p50_us,p99_us,retx_delta,bench_exit_code,notes" > "$csv"
 fi
 
-# Capture retransmits before/after to attribute losses.
-retx_before=$(awk '/segments retransmited/ {print $1; exit}' /proc/net/netstat 2>/dev/null \
-              || awk '/TCPRetransSegs/ {print $2; exit}' /proc/net/snmp 2>/dev/null \
-              || echo 0)
+# Capture TCP retransmits before/after to attribute losses. We parse
+# /proc/net/snmp by header name so we don't depend on column order, which
+# differs across kernels.
+read_retrans() {
+  awk '
+    /^Tcp:/ {
+      if (h == "") { h = $0 } else { v = $0 }
+    }
+    END {
+      if (h == "" || v == "") { print 0; exit }
+      n = split(h, hs); split(v, vs)
+      for (i = 1; i <= n; i++) {
+        if (hs[i] == "RetransSegs") { print vs[i]; exit }
+      }
+      print 0
+    }' /proc/net/snmp 2>/dev/null || echo 0
+}
+retx_before=$(read_retrans)
 
 # Run.
 log=$(mktemp)
 set +e
-env "${env_args[@]}" \
+# `${env_args[@]}` would error under `set -u` if the array is empty; the
+# `+"${env_args[@]}"` form expands to nothing in that case.
+env ${env_args[@]+"${env_args[@]}"} \
   transfer_engine_bench \
     --mode=initiator \
     --protocol="${protocol}" \
@@ -103,16 +119,16 @@ env "${env_args[@]}" \
 exit_code=$?
 set -e
 
-retx_after=$(awk '/segments retransmited/ {print $1; exit}' /proc/net/netstat 2>/dev/null \
-             || awk '/TCPRetransSegs/ {print $2; exit}' /proc/net/snmp 2>/dev/null \
-             || echo 0)
+retx_after=$(read_retrans)
 retx_delta=$(( retx_after - retx_before ))
 
-# Parse the bench's reported throughput. The current bench prints a line that
-# includes the throughput value; we grep liberally and let plot_results.py
-# normalize. Latency percentiles are TBD — first revision: leave blank, then
-# extend the bench (or wrap it) to emit them.
-goodput_gbps=$(grep -Eio '([0-9]+\.[0-9]+)[[:space:]]*(Gbps|Gb/s|Gb)' "$log" | tail -1 | awk '{print $1}' || true)
+# Parse the bench's reported throughput. The bench logs (via glog to stderr,
+# which we redirect into $log):
+#   "Test completed: duration 20.00, batch count 1234, throughput 78.32 Gb/s"
+# We pull the value adjacent to "throughput" so we don't accidentally match
+# the units string from elsewhere in the log.
+goodput_gbps=$(grep -Eo 'throughput[[:space:]]+[0-9]+\.[0-9]+[[:space:]]*Gb/s' "$log" \
+               | tail -1 | awk '{print $2}' || true)
 p50_us=""
 p99_us=""
 

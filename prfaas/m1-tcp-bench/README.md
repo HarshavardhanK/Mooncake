@@ -43,47 +43,74 @@ m1-tcp-bench/
 ├── README.md             ← this file
 ├── METHODOLOGY.md        ← what we measure, why, and how it maps to the paper
 ├── docker/
-│   ├── Dockerfile        ← Mooncake + tc netem + bench binary
+│   ├── Dockerfile        ← Mooncake + tc netem + bench binary (canonical deps.sh)
 │   └── compose.yml       ← two "DC" containers + a bridge with tc netem
 ├── scripts/
+│   ├── native_build.sh   ← build transfer_engine_bench on a cluster node (no Docker)
+│   ├── smoke_test.sh     ← target+initiator on loopback; validates harness wiring
 │   ├── wan_profiles.sh   ← tc netem profiles
 │   ├── apply_wan.sh      ← apply a profile inside a container
 │   ├── run_target.sh     ← starts transfer_engine_bench --mode=target
 │   ├── run_initiator.sh  ← runs one cell of the matrix, appends to results CSV
-│   ├── run_matrix.sh     ← drives the full sweep
+│   ├── run_matrix.sh     ← drives the full sweep (MODE=compose|native)
 │   └── plot_results.py   ← turns the CSV into figures
 └── results/              ← CSVs + plots, committed for traceability
 ```
 
-## Quickstart (local emulated WAN)
+## Three ways to run
 
-> Two real DCs are the eventual target; the emulated path lets us iterate without burning cluster time.
+### A) Single-host smoke test (fastest sanity check)
+
+Builds natively, runs target + initiator on loopback. ~3 min after deps are installed.
 
 ```bash
-# 1. Build the bench image (≈ 15 min cold; cached after).
+sudo ./dependencies.sh -y                            # canonical Mooncake deps + submodules
+./prfaas/m1-tcp-bench/scripts/native_build.sh        # ~5–10 min cold
+./prfaas/m1-tcp-bench/scripts/smoke_test.sh          # writes results/smoke.csv
+```
+
+If `smoke.csv` shows non-zero `goodput_gbps` and `bench_exit_code=0` for all rows, the harness is working end-to-end.
+
+### B) Local emulated WAN (Docker required)
+
+Two "DC" containers on a bridge with `tc netem` + `tbf` between them. Useful on a laptop to debug the matrix logic before two-DC runs.
+
+```bash
+git submodule update --init --recursive              # required for the Docker build
 cd prfaas/m1-tcp-bench/docker
-docker compose build
-
-# 2. Run a single profile end-to-end. Results land in ../results/<profile>.csv
+docker compose build                                 # ~15 min cold
+docker compose up -d
 cd ..
-./scripts/run_matrix.sh regional
-
-# 3. Plot.
+./scripts/run_matrix.sh regional                     # writes results/regional.csv
 python3 ./scripts/plot_results.py results/regional.csv
 ```
 
-## Two-cluster (real WAN) mode
+### C) Two real DCs (no Docker)
 
-Set `WAN_PROFILE=real` and skip the emulator; `run_target.sh`/`run_initiator.sh`
-are the same scripts and just need the right `--metadata_server` and
-`--segment_id` for your two clusters.
+```bash
+# Build on both nodes:
+sudo ./dependencies.sh -y && ./prfaas/m1-tcp-bench/scripts/native_build.sh
+
+# DC-A — start target. Note the "listening on host:port" line.
+PROTOCOL=tcp BUFFER_SIZE_MB=8192 \
+  LD_LIBRARY_PATH=$PWD/build/mooncake-transfer-engine/src:$PWD/build/mooncake-asio \
+  ./prfaas/m1-tcp-bench/scripts/run_target.sh
+
+# DC-B — drive the matrix. WAN profile is "real" so we don't apply tc netem.
+MODE=native TARGET_HOST=dc-a.internal:15123 \
+  ./prfaas/m1-tcp-bench/scripts/run_matrix.sh real
+
+python3 ./prfaas/m1-tcp-bench/scripts/plot_results.py prfaas/m1-tcp-bench/results/real.csv
+```
 
 ## Status
 
-- [ ] Dockerfile + compose for emulated WAN
-- [ ] `wan_profiles.sh` with the four profiles
-- [ ] Driver scripts (`run_target.sh`, `run_initiator.sh`, `run_matrix.sh`)
-- [ ] Result CSV schema + plotter
+- [x] Dockerfile + compose for emulated WAN
+- [x] `wan_profiles.sh` with the four profiles
+- [x] Driver scripts (`run_target.sh`, `run_initiator.sh`, `run_matrix.sh`)
+- [x] Native build + smoke test (no Docker)
+- [x] Result CSV schema + plotter
+- [ ] Smoke test passes locally (run on cluster node)
 - [ ] First report: `results/REPORT.md` summarizing H1–H5 outcomes
 
 See `METHODOLOGY.md` for the measurement details and how each metric maps back to the paper's throughput model (Eq. 1, 2, 3).

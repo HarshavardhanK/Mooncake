@@ -3,15 +3,22 @@
 #
 #   ./run_matrix.sh <profile>
 #
-# Designed to be run *from the host*, against the docker-compose stack:
-#   - applies the WAN profile inside dc_b's egress
-#   - starts target inside dc_a (background)
-#   - iterates the matrix from dc_b, appending to results/<profile>.csv
+# Two execution modes, controlled by env:
 #
-# For the "real" two-DC setup, override TARGET_HOST / INITIATOR_RUNNER:
-#   TARGET_HOST=dc-a.example.com:15000 \
-#   INITIATOR_RUNNER="ssh dc-b.example.com /opt/prfaas/scripts/run_initiator.sh" \
-#   ./run_matrix.sh real
+#   MODE=compose  (default)     uses docker-compose stack: dc_a is target,
+#                               dc_b is initiator with the WAN qdisc.
+#   MODE=native                 expects target on TARGET_HOST already running
+#                               (or we'll spawn one locally on $LOCAL_TARGET=1).
+#                               Useful for the two-DC setup or single-host
+#                               loopback tests when Docker isn't available.
+#
+# Two-DC pattern (no Docker on the cluster):
+#   On dc-a:  PROTOCOL=tcp BUFFER_SIZE_MB=8192 \
+#             LD_LIBRARY_PATH=$BUILD/.../src:$BUILD/.../mooncake-asio \
+#             prfaas/m1-tcp-bench/scripts/run_target.sh
+#             # note the "listening on host:port" line
+#   On dc-b:  MODE=native TARGET_HOST=dc-a:15123 \
+#             prfaas/m1-tcp-bench/scripts/run_matrix.sh regional
 
 set -euo pipefail
 
@@ -20,43 +27,74 @@ profile="${1:?usage: run_matrix.sh <profile>}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 m1_root="$(cd "${here}/.." && pwd)"
 results_csv="${m1_root}/results/${profile}.csv"
+mkdir -p "${m1_root}/results"
 
-# Compose-mode defaults.
-COMPOSE="${COMPOSE:-docker compose -f ${m1_root}/docker/compose.yml}"
-TARGET_EXEC="${TARGET_EXEC:-${COMPOSE} exec -T dc_a}"
-INIT_EXEC="${INIT_EXEC:-${COMPOSE} exec -T dc_b}"
+mode="${MODE:-compose}"
 
-if [[ "$profile" != "real" ]]; then
-  echo "[run_matrix] applying WAN profile=${profile} on dc_b egress"
-  ${INIT_EXEC} /work/scripts/apply_wan.sh "${profile}"
-fi
+# -----------------------------------------------------------------------------
+# Mode-specific setup: produce $RUN_INITIATOR_CMD (a shell command prefix that
+# runs run_initiator.sh in the right place) and $TARGET_ADDR.
+# -----------------------------------------------------------------------------
 
-echo "[run_matrix] starting target on dc_a"
-target_log="${m1_root}/results/${profile}.target.log"
-# Run target in background; capture stdout to read the RPC port.
-${TARGET_EXEC} bash -lc "/work/scripts/run_target.sh" >"${target_log}" 2>&1 &
-target_pid=$!
+declare -a CLEANUP_CMDS=()
+trap 'for c in "${CLEANUP_CMDS[@]}"; do eval "$c" || true; done' EXIT
 
-# Wait for the RPC listen line.
-echo "[run_matrix] waiting for target RPC port..."
-for _ in $(seq 1 60); do
-  if grep -Eo 'listening on [^ ]+:[0-9]+' "${target_log}" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
-listen_line=$(grep -Eo 'listening on [^ ]+:[0-9]+' "${target_log}" | tail -1 || true)
-if [[ -z "$listen_line" ]]; then
-  echo "[run_matrix] target failed to come up; see ${target_log}" >&2
-  kill "$target_pid" 2>/dev/null || true
-  exit 1
-fi
-target_addr="${listen_line##* }"
+case "$mode" in
+  compose)
+    COMPOSE="${COMPOSE:-docker compose -f ${m1_root}/docker/compose.yml}"
+    target_exec=(${COMPOSE} exec -T dc_a)
+    init_exec=(${COMPOSE} exec -T dc_b)
+
+    if [[ "$profile" != "real" ]]; then
+      echo "[run_matrix] applying WAN profile=${profile} on dc_b egress"
+      "${init_exec[@]}" /work/scripts/apply_wan.sh "${profile}"
+      CLEANUP_CMDS+=("${init_exec[*]} bash -lc 'tc qdisc del dev \$(ip -o -4 addr show | awk \"\\\$2!=\\\"lo\\\"{print \\\$2; exit}\") root 2>/dev/null || true'")
+    fi
+
+    target_log="${m1_root}/results/${profile}.target.log"
+    : > "${target_log}"
+    "${target_exec[@]}" bash -lc "/work/scripts/run_target.sh" >"${target_log}" 2>&1 &
+    target_local_pid=$!
+    # Important: docker exec's local pid does NOT propagate signals into the
+    # container. Kill the bench inside the container explicitly on cleanup.
+    CLEANUP_CMDS+=("kill ${target_local_pid} 2>/dev/null")
+    CLEANUP_CMDS+=("${target_exec[*]} pkill -f 'transfer_engine_bench --mode=target' 2>/dev/null")
+
+    echo "[run_matrix] waiting for target RPC port..."
+    for _ in $(seq 1 60); do
+      if grep -Eq 'listening on [^ ]+:[0-9]+' "${target_log}"; then break; fi
+      sleep 1
+    done
+    listen_line=$(grep -Eo 'listening on [^ ]+:[0-9]+' "${target_log}" | tail -1 || true)
+    if [[ -z "$listen_line" ]]; then
+      echo "[run_matrix] target failed to come up; see ${target_log}" >&2
+      exit 1
+    fi
+    target_addr="${listen_line##* }"
+    # In compose mode, dc_b reaches dc_a by service name. Port is what target printed.
+    target_addr="dc_a:${target_addr##*:}"
+
+    run_initiator_cmd=("${init_exec[@]}" /work/scripts/run_initiator.sh \
+                       --csv "/work/results/${profile}.csv")
+    ;;
+
+  native)
+    target_addr="${TARGET_HOST:?MODE=native requires TARGET_HOST=host:port}"
+    run_initiator_cmd=("${here}/run_initiator.sh" --csv "${results_csv}")
+    ;;
+
+  *)
+    echo "unknown MODE=${mode} (compose|native)" >&2
+    exit 2
+    ;;
+esac
+
 echo "[run_matrix] target=${target_addr}"
 
-trap 'echo "[run_matrix] tearing down"; kill "$target_pid" 2>/dev/null || true; ${INIT_EXEC} bash -lc "tc qdisc del dev \$(ip -o -4 addr show | awk '"'"'\$2!=\"lo\"{print \$2; exit}'"'"') root 2>/dev/null || true" || true' EXIT
+# -----------------------------------------------------------------------------
+# Sweep
+# -----------------------------------------------------------------------------
 
-# Sweep matrix.
 ops=(write read)
 block_sizes=(65536 262144 2097152)
 threads_list=(1 4 12 32)
@@ -71,9 +109,8 @@ for th in "${threads_list[@]}"; do
 for ss in "${slice_sizes[@]}"; do
 for cp in "${conn_pools[@]}"; do
 for rr in "${roundrobins[@]}"; do
-  ${INIT_EXEC} /work/scripts/run_initiator.sh \
+  "${run_initiator_cmd[@]}" \
     --segment-id "${target_addr}" \
-    --csv "/work/results/${profile}.csv" \
     --profile "${profile}" \
     --op "${op}" \
     --block-size "${bs}" \
