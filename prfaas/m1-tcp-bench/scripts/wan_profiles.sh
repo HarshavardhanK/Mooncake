@@ -2,11 +2,11 @@
 # `bandwidth` is in mbit. Empty bandwidth means uncapped.
 
 declare -A WAN_PROFILES=(
-  # name        delay_ms  loss_pct  bw_mbit
-  [lan]=        "0        0         "
-  [metro]=      "2        0         100000"
-  [regional]=   "10       0.01      100000"
-  [continental]="40       0.05      40000"
+  # name        delay_ms loss_pct bw_mbit  (leave bw_mbit empty for uncapped)
+  [lan]="0 0 "
+  [metro]="2 0 100000"
+  [regional]="10 0.01 100000"
+  [continental]="40 0.05 40000"
 )
 
 # Print "delay loss bw" for the given profile name.

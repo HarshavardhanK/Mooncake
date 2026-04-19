@@ -45,6 +45,9 @@ m1-tcp-bench/
 ├── docker/
 │   ├── Dockerfile        ← Mooncake + tc netem + bench binary (canonical deps.sh)
 │   └── compose.yml       ← two "DC" containers + a bridge with tc netem
+├── bench/                ← latency-aware bench, gated by -DWITH_PRFAAS=ON
+│   ├── CMakeLists.txt
+│   └── transfer_engine_lat_bench.cpp
 ├── scripts/
 │   ├── native_build.sh   ← build transfer_engine_bench on a cluster node (no Docker)
 │   ├── smoke_test.sh     ← target+initiator on loopback; validates harness wiring
@@ -110,6 +113,7 @@ python3 ./prfaas/m1-tcp-bench/scripts/plot_results.py prfaas/m1-tcp-bench/result
 - [x] Driver scripts (`run_target.sh`, `run_initiator.sh`, `run_matrix.sh`)
 - [x] Native build + smoke test (no Docker)
 - [x] Result CSV schema + plotter
+- [x] P50/P95/P99 latency tracking via `transfer_engine_lat_bench`
 - [ ] Smoke test passes locally (run on cluster node)
 - [ ] First report: `results/REPORT.md` summarizing H1–H5 outcomes
 
