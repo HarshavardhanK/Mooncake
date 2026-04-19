@@ -58,7 +58,7 @@ case "$mode" in
     # Important: docker exec's local pid does NOT propagate signals into the
     # container. Kill the bench inside the container explicitly on cleanup.
     CLEANUP_CMDS+=("kill ${target_local_pid} 2>/dev/null")
-    CLEANUP_CMDS+=("${target_exec[*]} pkill -f 'transfer_engine_bench --mode=target' 2>/dev/null")
+    CLEANUP_CMDS+=("${target_exec[*]} pkill -f 'transfer_engine_(lat_)?bench --mode=target' 2>/dev/null")
 
     echo "[run_matrix] waiting for target RPC port..."
     for _ in $(seq 1 60); do

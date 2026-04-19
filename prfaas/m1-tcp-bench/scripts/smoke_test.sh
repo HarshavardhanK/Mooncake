@@ -21,13 +21,16 @@ repo_root="$(cd "${m1_root}/../.." && pwd)"
 
 build_dir="${1:-${BUILD_DIR:-${repo_root}/build}}"
 bench="${build_dir}/mooncake-transfer-engine/example/transfer_engine_bench"
+lat_bench="${build_dir}/prfaas/m1-tcp-bench/bench/transfer_engine_lat_bench"
 
-if [[ ! -x "${bench}" ]]; then
-  echo "ERROR: ${bench} not found. Run scripts/native_build.sh first." >&2
-  exit 1
-fi
+for b in "${bench}" "${lat_bench}"; do
+  if [[ ! -x "${b}" ]]; then
+    echo "ERROR: ${b} not found. Run scripts/native_build.sh first." >&2
+    exit 1
+  fi
+done
 
-export PATH="${build_dir}/mooncake-transfer-engine/example:${PATH}"
+export PATH="${build_dir}/mooncake-transfer-engine/example:${build_dir}/prfaas/m1-tcp-bench/bench:${PATH}"
 export LD_LIBRARY_PATH="${build_dir}/mooncake-transfer-engine/src:${build_dir}/mooncake-asio:${LD_LIBRARY_PATH:-}"
 
 results_csv="${m1_root}/results/smoke.csv"
@@ -44,7 +47,7 @@ cleanup() {
   echo "[smoke] tearing down (pid=${target_pid})"
   kill "${target_pid}" 2>/dev/null || true
   wait "${target_pid}" 2>/dev/null || true
-  pkill -f 'transfer_engine_bench --mode=target' 2>/dev/null || true
+  pkill -f 'transfer_engine_(lat_)?bench --mode=target' 2>/dev/null || true
 }
 trap cleanup EXIT
 

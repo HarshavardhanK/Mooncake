@@ -16,7 +16,12 @@
 #   --roundrobin      0|1             sets MC_PATH_ROUNDROBIN
 #   --notes           <string>        free-form note column
 # Env:
-#   PROTOCOL          tcp|rdma        (default: tcp)
+#   PROTOCOL          tcp|rdma        (default: tcp; ignored when BENCH_BIN=lat)
+#   BENCH_BIN         upstream|lat    (default: lat — uses our latency-aware
+#                                      bench to populate p50_us/p95_us/p99_us;
+#                                      set to "upstream" to use the stock
+#                                      transfer_engine_bench, which leaves the
+#                                      latency columns blank)
 
 set -euo pipefail
 
@@ -57,6 +62,7 @@ done
 [[ -z "$profile" ]]    && { echo "--profile required"; exit 2; }
 
 protocol="${PROTOCOL:-tcp}"
+bench_bin="${BENCH_BIN:-lat}"
 
 # Resolve WAN profile fields (rtt_ms, loss_pct, bw_mbit) for the CSV.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -76,7 +82,7 @@ env_args=()
 
 mkdir -p "$(dirname "$csv")"
 if [[ ! -s "$csv" ]]; then
-  echo "timestamp,profile,rtt_ms,loss_pct,bw_mbit,op,block_size,threads,batch_size,slice_size,conn_pool,roundrobin,duration_s,goodput_gbps,p50_us,p99_us,retx_delta,bench_exit_code,notes" > "$csv"
+  echo "timestamp,profile,rtt_ms,loss_pct,bw_mbit,op,block_size,threads,batch_size,slice_size,conn_pool,roundrobin,duration_s,goodput_gbps,p50_us,p95_us,p99_us,retx_delta,bench_exit_code,bench_bin,notes" > "$csv"
 fi
 
 # Capture TCP retransmits before/after to attribute losses. We parse
@@ -98,47 +104,91 @@ read_retrans() {
 }
 retx_before=$(read_retrans)
 
-# Run.
+# Run. Two bench binaries are supported:
+#   - `transfer_engine_lat_bench` (BENCH_BIN=lat, default): emits
+#       TPUT_STATS ... goodput_gbps=NN.NN
+#       LAT_STATS  ... p50_us=NN.NN p95_us=NN.NN p99_us=NN.NN
+#     to stdout. TCP-only; no --protocol flag.
+#   - `transfer_engine_bench`     (BENCH_BIN=upstream): the stock upstream
+#     bench. Emits "throughput NN.NN Gb/s" via glog (stderr). Latency cols
+#     remain blank.
 log=$(mktemp)
 set +e
-# `${env_args[@]}` would error under `set -u` if the array is empty; the
-# `+"${env_args[@]}"` form expands to nothing in that case.
-env ${env_args[@]+"${env_args[@]}"} \
-  transfer_engine_bench \
-    --mode=initiator \
-    --protocol="${protocol}" \
-    --metadata_server=P2PHANDSHAKE \
-    --segment_id="${segment_id}" \
-    --operation="${op}" \
-    --block_size="${block_size}" \
-    --batch_size="${batch_size}" \
-    --threads="${threads}" \
-    --duration="${duration}" \
-    --report_unit=Gb \
-    >"$log" 2>&1
+case "$bench_bin" in
+  lat)
+    env ${env_args[@]+"${env_args[@]}"} \
+      transfer_engine_lat_bench \
+        --mode=initiator \
+        --metadata_server=P2PHANDSHAKE \
+        --segment_id="${segment_id}" \
+        --operation="${op}" \
+        --block_size="${block_size}" \
+        --batch_size="${batch_size}" \
+        --threads="${threads}" \
+        --duration="${duration}" \
+        >"$log" 2>&1
+    ;;
+  upstream)
+    env ${env_args[@]+"${env_args[@]}"} \
+      transfer_engine_bench \
+        --mode=initiator \
+        --protocol="${protocol}" \
+        --metadata_server=P2PHANDSHAKE \
+        --segment_id="${segment_id}" \
+        --operation="${op}" \
+        --block_size="${block_size}" \
+        --batch_size="${batch_size}" \
+        --threads="${threads}" \
+        --duration="${duration}" \
+        --report_unit=Gb \
+        >"$log" 2>&1
+    ;;
+  *)
+    echo "unknown BENCH_BIN=${bench_bin} (lat|upstream)" >&2
+    exit 2
+    ;;
+esac
 exit_code=$?
 set -e
 
 retx_after=$(read_retrans)
 retx_delta=$(( retx_after - retx_before ))
 
-# Parse the bench's reported throughput. The bench logs (via glog to stderr,
-# which we redirect into $log):
-#   "Test completed: duration 20.00, batch count 1234, throughput 78.32 Gb/s"
-# We pull the value adjacent to "throughput" so we don't accidentally match
-# the units string from elsewhere in the log.
-goodput_gbps=$(grep -Eo 'throughput[[:space:]]+[0-9]+\.[0-9]+[[:space:]]*Gb/s' "$log" \
-               | tail -1 | awk '{print $2}' || true)
+# Parse throughput + latency. The lat bench emits machine-readable lines:
+#   TPUT_STATS duration_s=20.00 batches=1234 bytes=... goodput_gbps=78.32
+#   LAT_STATS  samples=1234 p50_us=120.50 p95_us=350.10 p99_us=512.00 ...
+# The upstream bench logs "throughput 78.32 Gb/s" via glog; latency stays blank.
+extract() {
+  # extract <key> from a "key=val" pair on a line matching <prefix>
+  local prefix="$1" key="$2"
+  grep -E "^${prefix} " "$log" 2>/dev/null | tail -1 \
+    | grep -oE "${key}=[0-9]+(\.[0-9]+)?" | head -1 | cut -d= -f2
+}
+
+goodput_gbps=""
 p50_us=""
+p95_us=""
 p99_us=""
+case "$bench_bin" in
+  lat)
+    goodput_gbps=$(extract TPUT_STATS goodput_gbps)
+    p50_us=$(extract LAT_STATS p50_us)
+    p95_us=$(extract LAT_STATS p95_us)
+    p99_us=$(extract LAT_STATS p99_us)
+    ;;
+  upstream)
+    goodput_gbps=$(grep -Eo 'throughput[[:space:]]+[0-9]+\.[0-9]+[[:space:]]*Gb/s' "$log" \
+                   | tail -1 | awk '{print $2}' || true)
+    ;;
+esac
 
 ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # CSV-escape notes by stripping commas.
 notes_clean="${notes//,/;}"
 
-echo "${ts},${profile},${rtt_ms},${loss_pct},${bw_mbit},${op},${block_size},${threads},${batch_size},${slice_size},${conn_pool},${roundrobin},${duration},${goodput_gbps},${p50_us},${p99_us},${retx_delta},${exit_code},${notes_clean}" >> "$csv"
+echo "${ts},${profile},${rtt_ms},${loss_pct},${bw_mbit},${op},${block_size},${threads},${batch_size},${slice_size},${conn_pool},${roundrobin},${duration},${goodput_gbps},${p50_us},${p95_us},${p99_us},${retx_delta},${exit_code},${bench_bin},${notes_clean}" >> "$csv"
 
-echo "[run_initiator] cell complete: profile=${profile} bs=${block_size} th=${threads} slice=${slice_size:-default} pool=${conn_pool:-default} rr=${roundrobin:-default} -> ${goodput_gbps:-?} Gbps (exit=${exit_code})"
+echo "[run_initiator] cell: profile=${profile} bs=${block_size} th=${threads} slice=${slice_size:-default} pool=${conn_pool:-default} rr=${roundrobin:-default} -> ${goodput_gbps:-?} Gbps p99=${p99_us:-?}us (exit=${exit_code})"
 
 # Keep last log around for debugging.
 mv "$log" "${csv}.last.log"

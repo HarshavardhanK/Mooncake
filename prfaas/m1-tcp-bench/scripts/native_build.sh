@@ -43,19 +43,25 @@ cmake "${repo_root}" -G "${generator}" \
   -DUSE_ETCD=OFF \
   -DWITH_STORE=OFF \
   -DWITH_STORE_RUST=OFF \
+  -DWITH_PRFAAS=ON \
   -DBUILD_SHARED_LIBS=ON \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-cmake --build . --target transfer_engine_bench -j"${jobs}"
+cmake --build . --target transfer_engine_bench transfer_engine_lat_bench -j"${jobs}"
 
 bench="${build_dir}/mooncake-transfer-engine/example/transfer_engine_bench"
-if [[ ! -x "${bench}" ]]; then
-  echo "ERROR: build did not produce ${bench}" >&2
-  exit 1
-fi
+lat_bench="${build_dir}/prfaas/m1-tcp-bench/bench/transfer_engine_lat_bench"
+for b in "${bench}" "${lat_bench}"; do
+  if [[ ! -x "${b}" ]]; then
+    echo "ERROR: build did not produce ${b}" >&2
+    exit 1
+  fi
+done
 
 echo
-echo "[native_build] OK -> ${bench}"
-echo "[native_build] add to PATH or alias as needed:"
-echo "    export PATH=\"${build_dir}/mooncake-transfer-engine/example:\$PATH\""
+echo "[native_build] OK"
+echo "    upstream bench:   ${bench}"
+echo "    latency bench:    ${lat_bench}"
+echo "[native_build] add to PATH/LD_LIBRARY_PATH:"
+echo "    export PATH=\"${build_dir}/mooncake-transfer-engine/example:${build_dir}/prfaas/m1-tcp-bench/bench:\$PATH\""
 echo "    export LD_LIBRARY_PATH=\"${build_dir}/mooncake-transfer-engine/src:${build_dir}/mooncake-asio:\${LD_LIBRARY_PATH:-}\""

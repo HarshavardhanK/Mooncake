@@ -168,3 +168,12 @@ if (WITH_P2P_STORE)
   add_subdirectory(mooncake-p2p-store)
   message(STATUS "P2P Store will be built")
 endif()
+
+# PrfaaS-on-Mooncake experimental targets. Off by default; enabled in the
+# prfaas/ build scripts. Kept fully self-contained under prfaas/ so upstream
+# merges stay conflict-free.
+option(WITH_PRFAAS "Build PrfaaS experimental targets (under prfaas/)" OFF)
+if (WITH_PRFAAS)
+  message(STATUS "PrfaaS experimental targets will be built")
+  add_subdirectory(prfaas/m1-tcp-bench/bench)
+endif()

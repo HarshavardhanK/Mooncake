@@ -30,8 +30,8 @@ For each `(profile, block_size, threads, slice_size, conn_pool, op)` cell:
 
 | Metric | Source | Why we care |
 |---|---|---|
-| **Aggregate goodput (Gbps)** | `transfer_engine_bench` reported throughput | This *is* `B_{out}` in Eq. 2/3. Determines the bandwidth-bound term. |
-| **P50 / P99 transfer latency** | bench's per-batch latency (we'll add a `--report_latency` if missing) | Drives end-to-end TTFT contribution under transient bursts (§3.3 "bursty traffic"). |
+| **Aggregate goodput (Gbps)** | `transfer_engine_lat_bench` (or upstream) reported throughput | This *is* `B_{out}` in Eq. 2/3. Determines the bandwidth-bound term. |
+| **P50 / P95 / P99 batch latency** | `transfer_engine_lat_bench` per-batch wall-clock measurement (`submitTransfer` → all `getTransferStatus(COMPLETED)`) | Drives end-to-end TTFT contribution under transient bursts (§3.3 "bursty traffic"). The lat bench prints a single `LAT_STATS samples=N p50_us=... p95_us=... p99_us=...` line on stdout for easy parsing. |
 | **CPU% on initiator/target** | `pidstat -p $bench_pid 1` sampled in driver | The paper warns about sender-side CPU; we need to know if we're CPU-bound before declaring the link the bottleneck. |
 | **Retransmits (`netstat -s`)** | sampled before/after each cell | Validates H5 — does Mooncake's connection pool absorb mild loss? |
 | **Effective slice/QP utilization** | `MC_LOG_LEVEL=INFO` parsed | Sanity check for H4 (multi-path round-robin). |
