@@ -11,6 +11,16 @@
 #   BUFFER_SIZE_MB    target buffer per NUMA node (default: 4096 MiB)
 #   EXTRA_ARGS        passthrough to bench
 #   MC_*              standard Mooncake env vars
+#
+# Port discovery (P2P handshake mode only):
+#   The Transfer Engine ignores the port in `local_server_name` and randomly
+#   picks one from `MC_MIN_PRC_PORT`..`MC_MAX_PRC_PORT` (default 15000-17000)
+#   for both the RPC handshake and the TCP data plane. We can't pin both to a
+#   single port (they need separate ports) so the actual RPC port is announced
+#   on stdout via:
+#       Transfer Engine RPC using P2P handshake, listening on <host>:<port>
+#   The harness (smoke_test.sh / run_matrix.sh / your wrapper) must scrape
+#   this line and pass it to the initiator as `--segment-id <host>:<port>`.
 
 set -euo pipefail
 

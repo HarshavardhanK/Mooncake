@@ -70,12 +70,19 @@ DEFINE_int32(rpc_port, 12345, "Local RPC port (target).");
 
 namespace {
 
-const static int NR_SOCKETS =
-    numa_available() == 0 ? numa_num_configured_nodes() : 1;
+// Containers and NUMA-less machines often report 0 configured nodes even
+// when libnuma is "available" (CAP_SYS_NICE missing, mbind blocked, ...).
+// Detect that and fall back to plain aligned_alloc — saves us from divide-
+// by-zero in `i % NR_SOCKETS` and from numa_alloc_onnode segfaulting on a
+// nonexistent node.
+const static bool NUMA_OK =
+    numa_available() == 0 && numa_num_configured_nodes() > 0;
+const static int NR_SOCKETS = NUMA_OK ? numa_num_configured_nodes() : 1;
 
 std::atomic<bool> running{true};
 std::atomic<size_t> total_batch_count{0};
 std::atomic<size_t> total_bytes{0};
+std::atomic<size_t> total_failed_batches{0};
 
 // Thread-local latency samples are merged into this vector under
 // `latency_mutex` after the worker stops.
@@ -83,7 +90,7 @@ std::mutex latency_mutex;
 std::vector<uint64_t> latencies_us;
 
 void bindToSocket(int socket_id) {
-    if (numa_available() != 0) return;
+    if (!NUMA_OK) return;
     struct bitmask *cpu_mask = numa_allocate_cpumask();
     if (numa_node_to_cpus(socket_id % NR_SOCKETS, cpu_mask) == 0) {
         numa_sched_setaffinity(0, cpu_mask);
@@ -94,7 +101,7 @@ void bindToSocket(int socket_id) {
 std::vector<void *> allocateBuffers() {
     std::vector<void *> addrs(NR_SOCKETS, nullptr);
     for (int i = 0; i < NR_SOCKETS; ++i) {
-        if (numa_available() == 0) {
+        if (NUMA_OK) {
             addrs[i] = numa_alloc_onnode(FLAGS_buffer_size, i);
         } else {
             addrs[i] = aligned_alloc(4096, FLAGS_buffer_size);
@@ -111,7 +118,7 @@ std::vector<void *> allocateBuffers() {
 void freeBuffers(std::vector<void *> &addrs) {
     for (int i = 0; i < NR_SOCKETS; ++i) {
         if (!addrs[i]) continue;
-        if (numa_available() == 0) {
+        if (NUMA_OK) {
             numa_free(addrs[i], FLAGS_buffer_size);
         } else {
             free(addrs[i]);
@@ -146,6 +153,7 @@ void initiatorWorker(TransferEngine *engine, SegmentID segment_id,
     local_latencies.reserve(4096);
 
     size_t batch_count = 0;
+    size_t failed_batches = 0;
     size_t local_bytes = 0;
     while (running.load(std::memory_order_relaxed)) {
         auto batch_id = engine->allocateBatchID(FLAGS_batch_size);
@@ -164,33 +172,54 @@ void initiatorWorker(TransferEngine *engine, SegmentID segment_id,
             requests.push_back(e);
         }
 
+        // Treat per-batch errors (port exhaustion, transient peer issues,
+        // injected packet loss above the TCP retx ceiling) as data points,
+        // not FATAL. We only abort on engine-level API errors that suggest a
+        // programming bug (bad batch ID, etc).
+        bool batch_failed = false;
         auto t0 = std::chrono::steady_clock::now();
         auto s = engine->submitTransfer(batch_id, requests);
-        if (!s.ok()) LOG(FATAL) << "submitTransfer: " << s.ToString();
+        if (!s.ok()) {
+            LOG_EVERY_N(WARNING, 100)
+                << "submitTransfer: " << s.ToString();
+            batch_failed = true;
+        }
 
-        for (int task = 0; task < FLAGS_batch_size; ++task) {
-            TransferStatus st;
-            while (true) {
-                auto gs = engine->getTransferStatus(batch_id, task, st);
-                if (!gs.ok()) LOG(FATAL) << "getTransferStatus: " << gs.ToString();
-                if (st.s == TransferStatusEnum::COMPLETED) break;
-                if (st.s == TransferStatusEnum::FAILED) {
-                    LOG(FATAL) << "transfer failed task=" << task;
+        if (!batch_failed) {
+            for (int task = 0; task < FLAGS_batch_size && !batch_failed;
+                 ++task) {
+                TransferStatus st;
+                while (true) {
+                    auto gs = engine->getTransferStatus(batch_id, task, st);
+                    if (!gs.ok()) {
+                        LOG(FATAL) << "getTransferStatus: " << gs.ToString();
+                    }
+                    if (st.s == TransferStatusEnum::COMPLETED) break;
+                    if (st.s == TransferStatusEnum::FAILED) {
+                        batch_failed = true;
+                        break;
+                    }
                 }
             }
         }
         auto t1 = std::chrono::steady_clock::now();
-        uint64_t us =
-            std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0)
-                .count();
-        local_latencies.push_back(us);
+
+        if (batch_failed) {
+            failed_batches++;
+        } else {
+            uint64_t us =
+                std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0)
+                    .count();
+            local_latencies.push_back(us);
+            local_bytes += (size_t)FLAGS_batch_size * (size_t)FLAGS_block_size;
+        }
 
         engine->freeBatchID(batch_id);
         batch_count++;
-        local_bytes += (size_t)FLAGS_batch_size * (size_t)FLAGS_block_size;
     }
 
     total_batch_count.fetch_add(batch_count);
+    total_failed_batches.fetch_add(failed_batches);
     total_bytes.fetch_add(local_bytes);
     {
         std::lock_guard<std::mutex> lk(latency_mutex);
@@ -265,6 +294,7 @@ int run_initiator() {
         std::cout << std::fixed << std::setprecision(2);
         std::cout << "TPUT_STATS duration_s=" << secs
                   << " batches=" << batches
+                  << " failed_batches=" << total_failed_batches.load()
                   << " bytes=" << bytes
                   << " goodput_gbps=" << gbps << "\n";
         std::cout << "LAT_STATS samples=" << latencies_us.size()

@@ -57,21 +57,27 @@ RUN cd extern/yalantinglibs \
     && cmake --install . \
     && cd /src && rm -rf extern/yalantinglibs/build
 
-# --- mooncake build (only the bench target) -------------------------------
+# --- mooncake build (only the bench targets we use) -----------------------
+# WITH_PRFAAS=ON pulls in prfaas/m1-tcp-bench/bench/transfer_engine_lat_bench
+# alongside the upstream transfer_engine_bench. Both targets get built so the
+# harness can pick between them via BENCH_BIN={lat,upstream}.
 RUN mkdir -p build && cd build \
     && cmake .. -G Ninja \
         -DUSE_CUDA=OFF \
         -DUSE_ETCD=OFF \
         -DWITH_STORE=OFF \
         -DWITH_STORE_RUST=OFF \
+        -DWITH_PRFAAS=ON \
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    && cmake --build . --target transfer_engine_bench -j"$(nproc)"
+    && cmake --build . --target transfer_engine_bench transfer_engine_lat_bench -j"$(nproc)"
 
-# Put the bench on PATH and make sure the runtime loader can find the .so's
-# that were built alongside it (transfer_engine, asio_shared, etc.).
+# Put both benches on PATH and make sure the runtime loader can find the .so's
+# that were built alongside them (transfer_engine, asio_shared, etc.).
 RUN ln -s /src/build/mooncake-transfer-engine/example/transfer_engine_bench \
           /usr/local/bin/transfer_engine_bench \
+    && ln -s /src/build/prfaas/m1-tcp-bench/bench/transfer_engine_lat_bench \
+          /usr/local/bin/transfer_engine_lat_bench \
     && echo "/src/build/mooncake-transfer-engine/src" >> /etc/ld.so.conf.d/mooncake.conf \
     && echo "/src/build/mooncake-asio" >> /etc/ld.so.conf.d/mooncake.conf \
     && find /src/build -maxdepth 6 -name '*.so*' -printf '%h\n' | sort -u >> /etc/ld.so.conf.d/mooncake.conf \

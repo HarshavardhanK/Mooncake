@@ -159,10 +159,16 @@ retx_delta=$(( retx_after - retx_before ))
 #   LAT_STATS  samples=1234 p50_us=120.50 p95_us=350.10 p99_us=512.00 ...
 # The upstream bench logs "throughput 78.32 Gb/s" via glog; latency stays blank.
 extract() {
-  # extract <key> from a "key=val" pair on a line matching <prefix>
+  # extract <key> from a "key=val" pair on a line matching <prefix>.
+  # Returns empty (and exit 0) if no match — important so a crashed bench
+  # still produces a CSV row with the failure recorded, instead of bringing
+  # down the whole matrix run via `set -e`.
   local prefix="$1" key="$2"
-  grep -E "^${prefix} " "$log" 2>/dev/null | tail -1 \
-    | grep -oE "${key}=[0-9]+(\.[0-9]+)?" | head -1 | cut -d= -f2
+  { grep -E "^${prefix} " "$log" 2>/dev/null \
+      | tail -1 \
+      | grep -oE "${key}=[0-9]+(\.[0-9]+)?" \
+      | head -1 \
+      | cut -d= -f2; } || true
 }
 
 goodput_gbps=""
