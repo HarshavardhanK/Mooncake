@@ -1,0 +1,118 @@
+# Phase 1 Φkv profiler for D1 = Qwen2.5-72B-Instruct (paper-faithful dense control).
+# Same pattern as 10-profiler-kimi.yaml; only the model env vars differ.
+# This Job intentionally requires the same 8 GPUs that Kimi uses, so the two
+# Jobs are mutually exclusive on g126 — apply one at a time, or sequence
+# them with `kubectl wait`.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phi-kv-profiler-qwen2-5-72b
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    prfaas.experiment/model: "qwen2.5-72b-instruct"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: phi-kv-profiler-qwen2-5-72b
+        prfaas.experiment/phase: "1"
+        prfaas.experiment/model: "qwen2.5-72b-instruct"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: profiler
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase1-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: SGLANG_TAG
+              value: "sglang-v0.5.9-cu129-amd64"
+            - name: SGLANG_FLAGS
+              value: "--disable-radix-cache --max-running-requests 1"
+            - name: HF_HOME
+              value: "/models/.cache/hf"
+            # See note in 10-profiler-kimi.yaml — keep torch._inductor from
+            # spawning workers that race for the SGLang API port.
+            - name: TORCHINDUCTOR_COMPILE_THREADS
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[run] target model: ${D1_MODEL_REPO}"
+              echo "[run] tp size:      ${D1_TP_SIZE}"
+              echo "[run] ctx lens:     ${CTX_LENS}"
+
+              echo "[run] launching SGLang in background"
+              python3 -m sglang.launch_server \
+                --model-path "${D1_MODEL_LOCAL_DIR}" \
+                --tp ${D1_TP_SIZE} \
+                --trust-remote-code \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --host 127.0.0.1 \
+                --mem-fraction-static 0.85 \
+                --max-running-requests 1 \
+                --disable-radix-cache \
+                --log-level info \
+                > /results/${D1_MODEL_SHORT}.sglang.log 2>&1 &
+              SGLANG_PID=$!
+              cleanup() {
+                kill -TERM ${SGLANG_PID} 2>/dev/null || true
+                wait ${SGLANG_PID} 2>/dev/null || true
+              }
+              trap cleanup EXIT
+
+              python3 /scripts/phi_kv_probe.py \
+                --model-dir "${D1_MODEL_LOCAL_DIR}" \
+                --model-id "${D1_MODEL_REPO}" \
+                --model-short "${D1_MODEL_SHORT}" \
+                --tp-size "${D1_TP_SIZE}" \
+                --base-url "http://127.0.0.1:${PRFAAS_SGLANG_API_PORT}" \
+                --ctx-lens "${CTX_LENS}" \
+                --warmup "${WARMUP_REQUESTS}" \
+                --timed "${TIMED_REQUESTS}" \
+                --output-len "${OUTPUT_LEN}" \
+                --output "/results/${D1_MODEL_SHORT}.jsonl"
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "8"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "8"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+            - name: results
+              mountPath: /results
+            - name: probe-script
+              mountPath: /scripts
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+        - name: results
+          persistentVolumeClaim:
+            claimName: prfaas-phase1-results
+        - name: probe-script
+          configMap:
+            name: prfaas-phase1-probe-script
+            defaultMode: 0755
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

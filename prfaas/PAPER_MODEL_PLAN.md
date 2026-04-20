@@ -121,19 +121,38 @@ gives the paper an apples-to-apples replication on the open-source stack.
 `state_size`/`d_inner`/`expand`/`d_conv` — connector needs to be
 config-driven; we can't hardcode shapes. Manageable.
 
-## Decision
+## Decision (updated 2026-04-19 — Path B selected)
 
-For this iteration:
-- **Now:** Path A (wait) for the connector, **and** finish the wire
-  baseline (Stages A→B→C→D) on dense Qwen2.5-7B-Instruct. The wire
-  baseline gives us the shape of the Λ_max curve and the cross-DC
-  TTFT/throughput numbers — those are useful regardless of which model
-  populates them.
-- **Probe in parallel:** Path B (SGLang) — single g126 night. If it
-  works, immediate hybrid baseline; we promote it to a "Stage A-hybrid"
-  and re-run.
-- **If neither A nor B yields by a defined date:** Path C. Estimated
-  effort 2–4 weeks; would land as `kvcache-ai/Mooncake` PR + vLLM PR.
+After confirming that **SGLang v0.5.9 ships first-class Mooncake PD-disagg**
+(Mooncake transfer engine v0.3.9, GPU staging buffer for heterogeneous TP,
+intra-node NVLink KV transfer — see release notes), Path B is no longer
+"a probe" — it's the answer. The paper's authors used SGLang for their own
+profiling (it's the engine that natively serves Kimi-Linear / Mamba2 /
+KDA / MLA without `SupportsHMA` patching), so adopting SGLang for our
+hybrid runs is a paper-fidelity *gain*, not a workaround.
+
+**Active plan:**
+
+1. **Phase 1 (now, paper-faithful Φkv replication).** SGLang v0.5.9 +
+   Kimi-Linear-48B-A3B-Instruct + Qwen2.5-72B-Instruct (dense control) +
+   Nemotron-Nano-9B-v2 (adjacent hybrid) on g126. Single-instance, no
+   wire, no PD-disagg — just Φkv per (model, context length).
+   Manifests: `prfaas/m1.5-vllm-baseline/k8s/phase1/`.
+   Plan: `prfaas/PHASE1_PHIKV_PLAN.md`.
+2. **Phase 2 (next).** Implement paper Eq 3-8, feed Phase 1's Φkv +
+   Stage 0a's 14.7 Gbps wire, regenerate Λ_max(BW, SLO). Pick the hybrid
+   that the analytical model says fits our wire as Phase 3's target.
+3. **Phase 3 (after Phase 2).** Empirical SGLang Mooncake PD-disagg run
+   on the chosen hybrid. Single-host first (g126 split TP=4+TP=4), then
+   cross-DC g304→g126 once X-cluster K8s GPU exposure unblocks.
+4. **Path C is now optional.** Our `SupportsHMA` upstream PR (#1931 on
+   kvcache-ai/Mooncake) is still useful for vLLM users who want the same
+   hybrid support, and the analysis there is still correct, but it is no
+   longer on the critical path for *our* paper-replication work.
+
+The original "Stage A on Qwen2.5-7B-Instruct (dense)" stays in the repo as
+proof the K8s + Mooncake plumbing is alive, but it is not a paper data point
+and is not cited from any paper-replication plot.
 
 ## Hardware capacity for each paper model on our rig
 
@@ -160,8 +179,13 @@ are, in order:
 | Item | Status | Owner | ETA |
 | --- | --- | --- | --- |
 | Wire baseline on dense (Qwen2.5-7B-Instruct), Stage A | done | rig | done |
-| Wire baseline on dense, Stage B (internal X) | manifests written | rig | this week |
-| Wire baseline on dense, Stage D (X→Y cross-DC) | manifests written | rig | this week (after firewall) |
-| SGLang probe on Nemotron-Nano-9B-v2 | not started | rig | next |
+| `SupportsHMA` upstream PR — kvcache-ai/Mooncake#1931 | open, mergeable, awaiting human review | upstream | upstream queue |
+| Phase 1 — SGLang Φkv on Kimi-Linear-48B-A3B-Instruct | manifests applied; weights downloading on g126 | rig | today (~1h after weights staged) |
+| Phase 1 — SGLang Φkv on Qwen2.5-72B-Instruct (dense control) | manifests applied; weights downloading on g126 | rig | today |
+| Phase 1 — SGLang Φkv on Nemotron-Nano-9B-v2 (adjacent hybrid) | manifests applied; weights downloading on g126 | rig | today (smallest model — first to validate the SGLang+probe pipeline) |
+| Phase 2 — analytical Λ_max regenerator (paper Eq 3-8) | not started | rig | after Phase 1 |
+| Phase 3 — SGLang Mooncake PD-disagg on Kimi-Linear (or whatever Phase 2 picks) | not started | rig | after Phase 2 |
+| Stage B/C/D — full Λ_max sweep cross-DC on the Phase 3 model | manifests scaffolded for vLLM path; will port to SGLang | rig | after Phase 3 |
+| X-cluster K8s GPU exposure (needed for Qwen3-235B / MiMo-V2-Flash) | blocked (per discovery notes) | infra | open |
 | Track vllm PR #36687 + v0.20.x | watching | — | — |
-| Path C connector PR | not started | rig | conditional on A/B failure |
+| Path C connector PR | not started; downgraded from "blocking" to "nice-to-have" | rig | conditional on Phase 3 outcome |

@@ -1,30 +1,52 @@
 # PrfaaS-on-Mooncake: experiment plan
 
-**Status:** draft v0.3 — substantive correction. v0.1/v0.2 framed the experiment
-around per-request TTFT on dense-attention models (Llama-70B, Qwen3-8B). After
-re-reading the paper end-to-end (see `prfaas/PAPER_REREAD.md` for the receipts),
-both choices are wrong:
+**Status:** draft v0.4 — paper-faithful re-alignment.
 
-1. **Wrong metric.** The paper's headline claim is *throughput-at-SLO* —
-   "decode DC sustains N× more concurrent users at fixed P95 TTFT" — not
-   "any single request gets a faster TTFT." Per-request TTFT on a starved WAN
-   *will look bad*, and that's not a refutation of the paper.
+> **TL;DR for v0.4.** v0.3 had the right framing (Λ_max-at-SLO, hybrid focus,
+> three-config head-to-head) but used model surrogates (Qwen3-Next-80B-A3B,
+> Qwen2.5-7B) that aren't in the PrfaaS paper's evaluation set. v0.4 inserts a
+> new **Phase 1 — Φkv replication** that profiles the paper's actual primary
+> hybrid (`moonshotai/Kimi-Linear-48B-A3B-Instruct`) with the paper's actual
+> serving stack (SGLang v0.5.9 + Mooncake transfer engine), reproducing the
+> measurement that drives Table 6. Stages A–D from v0.3 still stand but become
+> the *empirical* arm of the plan; Phase 1 is the *analytical* input the paper
+> uses to forecast Λ_max(BW, SLO). See
+> [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md) for the full Phase 1 spec.
+
+### v0.3 → v0.4 changelog
+
+| What | v0.3 | v0.4 |
+|---|---|---|
+| Primary hybrid | Qwen3-Next-80B-A3B-Instruct (paper-adjacent) | **moonshotai/Kimi-Linear-48B-A3B-Instruct** (paper's actual) |
+| Smoke / second hybrid | nvidia/Nemotron-Nano-9B-v2 (paper-adjacent Mamba2) | unchanged |
+| Dense control | analytical only (Llama-70B, Qwen3-8B back-of-envelope) | **measured: Qwen2.5-72B-Instruct** on g126; defer Qwen3-235B (paper's actual) until X-cluster K8s GPU exposure unblocks |
+| Engineering smoke for K8s plumbing | n/a | Stage A's Qwen2.5-7B run on vLLM (kept as proof the K8s+Mooncake plumbing is alive; not a paper data point) |
+| Engine | vLLM 0.19.1 only | **SGLang v0.5.9** for Phase 1 (paper's exact tool, ships first-class Mooncake PD-disagg); vLLM kept for Stage A engineering smoke |
+| Headline measurement | Stage D Λ_max(P)/Λ_max(H) ratio | unchanged for the empirical arm; **Phase 1's Φkv replication is the analytical headline** that Phase 2 plugs into the paper's Eq 3-8 to predict the same ratio |
+
+### Earlier reframing (kept from v0.3)
+
+v0.1/v0.2 framed the experiment around per-request TTFT on dense models
+(Llama-70B, Qwen3-8B). After re-reading the paper end-to-end (see
+`prfaas/PAPER_REREAD.md`), both choices were wrong:
+
+1. **Wrong metric.** The paper's headline is *throughput-at-SLO* — "decode DC
+   sustains N× more concurrent users at fixed P95 TTFT", not "any single
+   request gets a faster TTFT". Per-request TTFT on a starved WAN looks bad;
+   that's not a refutation of the paper.
 2. **Wrong model class.** Cross-DC PD only closes the bandwidth budget for
-   **hybrid-attention models** (Mamba/SSM/linear-attention layers cut KV
-   throughput 10–20×). Llama-70B's KV stream is ~30–70 Gbps per replica at
-   load — physically impossible to push across commodity public internet.
-   The paper says this explicitly.
+   hybrid-attention models. Llama-70B's KV stream is ~30–70 Gbps per replica
+   at load — physically impossible to push across commodity public internet.
 
-v0.3 fixes both. Primary model is **Qwen3-Next-80B-A3B-Instruct** (genuinely
-hybrid, MoE, fits TP=8 on H100). Smoke-test model is
-**`nvidia/Nemotron-Nano-9B-v2`** (also hybrid, fits TP=1). Primary metric is
-**Λ_max at TTFT P95 ≤ SLO**. We also drop the WireGuard-as-default plan in
-favor of a firewall-whitelist + interface-bind approach (see §2.1) so the
-benchmark measures the wire, not the tunnel.
+v0.3 corrected both. v0.4 takes the next step: instead of using paper-adjacent
+hybrid surrogates, run the paper's actual hybrid (Kimi-Linear-48B-A3B) with
+the paper's actual engine (SGLang v0.5.9), so our Φkv numbers are directly
+comparable to the paper's published Table 6 values.
 
-Stages A–D are restructured around three head-to-head configurations
+Stages A–D are still structured around three head-to-head configurations
 (collocated / naive het / PrfaaS-style) per stage, sweeping concurrency to
-find Λ_max for each.
+find Λ_max for each. Phase 1 sits *before* Stage B and feeds Phase 2's
+analytical regenerator.
 
 This doc is the end-to-end plan for **proving (or refuting) the central claim
 of the PrfaaS paper** — that cross-datacenter Prefill-Decode disaggregation
@@ -209,13 +231,25 @@ Each stage is independently meaningful. We don't move on until the previous
 stage's go/no-go is met.
 
 ```
-Stage 0 ──> Stage A ──> Stage B ──> Stage C ──> Stage D
-(wire)      (smoke)     (IB base)   (IB+netem)  (real WAN)
-                            \           \           \
-                             \-- isolates Mooncake overhead
-                                         \-- isolates RTT effect
-                                                     \-- adds public-internet noise
+Stage 0 ──> Stage A ──> Phase 1 ──> Phase 2 ──> Stage B ──> Stage C ──> Stage D
+(wire)      (eng        (Φkv per    (analyt    (IB base)   (IB+netem)  (real WAN)
+            smoke,      paper       regenerate
+            Qwen2.5-7B  hybrid +    Λ_max from
+            on vLLM)    dense       measured Φkv
+                        on SGLang)  + Stage 0a
+                                    wire)
+                                        \           \           \
+                                         \-- isolates Mooncake overhead
+                                                     \-- isolates RTT effect
+                                                                 \-- adds public-internet noise
 ```
+
+**Phase 1 + Phase 2 = analytical / paper-replication arm.** They live on
+g126 alone, no wire involved, and produce numbers directly comparable to the
+paper's Table 6 / Figure 8.
+
+**Stages B–D = empirical PD-disagg arm.** Validate that our actual measured
+Λ_max on hybrid models matches the analytical prediction from Phase 2.
 
 Every stage from B onward runs **three configurations** in head-to-head:
 
@@ -318,6 +352,84 @@ probe, custom connector).
   `1/1 Ready` for ≥ 5 min.
 - Negative finding for the hybrid path (Nemotron) is captured with
   full stack traces and the proposed three-path unblock.
+
+### Phase 1 — Φkv replication on the paper's actual hybrid (1 day, on g126)
+
+**Goal:** reproduce the paper's Table 6 input — the per-model KV-throughput
+rate `Φkv(l) = Skv(l) / Tprefill(l)` — using the paper's actual primary
+hybrid (`moonshotai/Kimi-Linear-48B-A3B-Instruct`), the paper's actual
+serving stack (SGLang v0.5.9), and the paper's context-length sweep
+(1 K → 128 K). Full spec: [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md).
+
+**What changes vs Stage A:**
+
+- **Engine.** SGLang v0.5.9 (paper's tool) instead of vLLM 0.19.1 (Stage A).
+  SGLang's attention dispatcher handles linear-attention / MLA natively, so
+  Kimi-Linear and Nemotron-Nano both serve out of the box — no `SupportsHMA`
+  patch, no Mamba2 `NotImplementedError`. Bonus: SGLang's Mooncake PD-disagg
+  path is what we'll need in Phase 3 too, so we standardise here.
+- **Model.** Kimi-Linear-48B-A3B-Instruct (paper's primary hybrid that fits
+  one 8-H100 box, 49 GiB BF16, MIT license, public on HF).
+- **Workload.** Single-instance, concurrency=1, output_len=1, no radix-cache
+  hits. The probe times request_submit → first_token, computes Skv(l) from
+  config.json, dumps JSONL.
+
+**Models in scope this week (g126 alone):**
+
+| Role | Model | TP | Why |
+|---|---|---|---|
+| H1 (paper hybrid) | `moonshotai/Kimi-Linear-48B-A3B-Instruct` | 8 | Paper's primary hybrid; 3:1 KDA-to-MLA architecture |
+| H2 (adjacent hybrid) | `nvidia/NVIDIA-Nemotron-Nano-9B-v2` | 4 | Already on Stage A's PVC; cheap second data point |
+| D1 (dense control) | `Qwen/Qwen2.5-72B-Instruct` | 8 | Largest dense model that fits one box at BF16; paper-faithful "high-Φkv full-attention" control |
+
+Deferred until X-cluster K8s GPU exposure unblocks: Qwen3-235B-A22B (paper's
+actual dense control, FP8, TP=16), MiMo-V2-Flash 309B (paper's secondary
+hybrid).
+
+**Done when:**
+- `prfaas/results/phase1_phi_kv/{kimi-linear-48b,qwen2.5-72b-instruct,nemotron-nano-9b-v2}.jsonl`
+  populated with all 8 context-length cells.
+- `COMPARE_TO_PAPER.md` shows our Kimi-Linear Φkv at 32 K within ±20% of the
+  paper's Table 6 value, or documents a specific reason for the gap.
+- Hybrid Φkv at 32 K is at least 5× lower than dense Φkv at 32 K — the
+  paper's qualitative headline, replicated on our own hardware.
+
+**Status (as of 2026-04-20):** **DONE** for the qualitative paper claim;
+quantitative diff vs paper Table 6 deferred to Phase 2 prerequisite.
+- Kimi-Linear-48B (H1): 8/8 cells, Φkv plateau **5.6–5.8 Gbps** for `l ∈
+  [16 K, 65 K]`, 5.25 Gbps at 131 K.
+- Nemotron-Nano-9B-v2 (H2): 7/8 cells (probe now skips
+  `l ≥ max_position_embeddings - safety`), Φkv plateau **6.5 Gbps** for
+  `l ∈ [16 K, 65 K]`.
+- Qwen2.5-72B-Instruct (D1): 5/5 cells within stock
+  `max_position_embeddings = 32 768`, Φkv plateau **54–56 Gbps**.
+- Headline ratio at the only `l` common to all three (16 K):
+  **dense / Kimi = 9.3×**, **dense / Nemotron = 8.4×**, both above the
+  5× target.
+- Wire-feasibility cross-check vs measured 14.7 Gbps WAN: every hybrid
+  cell ≤ wire (2.2× to 4× headroom); every dense cell ≫ wire
+  (3.6× to 4× over). PD-disagg is feasible on hybrids, infeasible on the
+  dense control — matches paper §5.1.
+- Full table + per-model JSONL + SGLang server logs:
+  [`results/phase1_phi_kv/`](./results/phase1_phi_kv/), entry-point
+  [`PHI_KV_TABLE.md`](./results/phase1_phi_kv/PHI_KV_TABLE.md) and
+  [`COMPARE_TO_PAPER.md`](./results/phase1_phi_kv/COMPARE_TO_PAPER.md).
+
+### Phase 2 — Analytical Λ_max regenerator (½ day, no GPUs needed)
+
+**Goal:** implement the paper's throughput-at-SLO model (Eq 3-8 in §3 of the
+paper) as Python, feed it Phase 1's measured Φkv plus Stage 0a's measured
+wire bandwidth (14.7 Gbps median single-flow goodput), regenerate the paper's
+Figure 8 with our actual numbers.
+
+Outputs:
+- `prfaas/results/phase2_analytical/lambda_max_predictions.csv` — predicted
+  Λ_max(BW, SLO) per (model, link bandwidth, RTT, target SLO) cell.
+- `prfaas/results/phase2_analytical/PAPER_FIG8_REGEN.png` — paper-style plot.
+- A "**which model is the sweet spot for Phase 3?**" pick: the hybrid where
+  the analytical model says Λ_max(P) > Λ_max(H) at our measured wire.
+
+This phase is pure code. No new GPUs, no new K8s. It feeds Phase 3.
 
 ### Stage B — All-on-X disagg over IB (1 day)
 
