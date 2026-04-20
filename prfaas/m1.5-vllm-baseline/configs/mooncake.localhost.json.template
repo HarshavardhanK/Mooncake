@@ -1,7 +1,7 @@
 {
     "local_hostname": "127.0.0.1",
-    "metadata_server": "etcd://127.0.0.1:2379",
+    "metadata_server": "P2PHANDSHAKE",
     "protocol": "tcp",
     "device_name": "",
-    "master_server_address": "127.0.0.1:10001"
+    "master_server_address": ""
 }
