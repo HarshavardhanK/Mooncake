@@ -10,6 +10,15 @@
 !README.md
 !stage*/SUMMARY.md
 !stage*/MODEL_DECISION.md
+# Stage A unblock: in-place MooncakeConnector patch evidence is committed to
+# the repo so the operator can reproduce the failure mode and the patch's
+# effect without re-running the cluster. These files are small and stable.
+!stage*/MC_PATCH_NOTE.md
+!stageA/patch_confirmation.log
+!stageA/worker_init_blocker.log
+!stageA/prefiller_full.log
+!stageA/decoder_full.log
+!stageA/install_mooncake_init.log
 # A single canonical CSV per stage may be checked in by name; commit it
 # explicitly with `git add -f` if needed, or place under a subdir.
 !stage*/*-to-*.csv

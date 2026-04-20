@@ -1,0 +1,19 @@
+# Single PVC for the model weights, mounted RWO by both prefiller and
+# decoder. Safe because both pods are pinned to g126 via nodeSelector
+# and Kubernetes >= 1.22 allows multiple pods on the *same node* to
+# mount a ReadWriteOnce PVC concurrently.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-weights
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 80Gi

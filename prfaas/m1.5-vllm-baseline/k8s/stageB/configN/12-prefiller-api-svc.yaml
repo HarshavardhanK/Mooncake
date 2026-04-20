@@ -1,0 +1,19 @@
+# Front-door OpenAI HTTP for the Config-N prefiller; consumed by the proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-n-api
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "N"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: prefiller-n
+  ports:
+    - name: http
+      port: 8010
+      targetPort: api
+      protocol: TCP

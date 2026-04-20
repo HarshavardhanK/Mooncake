@@ -1,0 +1,64 @@
+# Stage D — cross-DC end-to-end smoke. Same shape as Stage A's smoke; the
+# only difference is the proxy it hits (proxy-staged on :8001 instead of the
+# Stage A `proxy` on :8000).
+#
+# A green smoke job means:
+#   1. The Y-side proxy can dial g304's public IP on 8010 (warmup) AND 8998
+#      (bootstrap query). If the firewall is wrong, this fails first with a
+#      connection-refused.
+#   2. The Y-side decoder can pull KV from g304 over the dynamic transport
+#      range (13000-17000). If that path is broken, the decoder hangs.
+#   3. End-to-end response is 200 + non-empty content.
+#
+# After the smoke is green, look for `transfer_id` in BOTH pod logs:
+#   kubectl --context vpcloud-slurm-v2-admin -n prfaas-staged logs deploy/prefiller-staged | grep -E 'transfer_id|kv_producer'
+#   kubectl --context aln1-beta-harsha-g126-beta -n default       logs deploy/decoder-staged   | grep -E 'transfer_id|kv_consumer'
+# Matching ids on both sides == confirmed cross-DC KV transfer happened.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-staged
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "[smoke-staged] hitting cross-DC proxy..."
+              body='{"model":"nemotron-nano-9b-v2",
+                     "messages":[{"role":"user","content":"Say the single word: OK"}],
+                     "max_tokens":4,
+                     "temperature":0}'
+              resp=$(curl -sS --max-time 60 -w '\n__HTTP__%{http_code}' \
+                http://proxy-staged.default.svc.cluster.local:8001/v1/chat/completions \
+                -H 'Content-Type: application/json' \
+                -d "$body")
+              code=$(echo "$resp" | sed -n 's/^__HTTP__//p')
+              body=$(echo "$resp" | sed '/^__HTTP__/d')
+              echo "[smoke-staged] http=$code"
+              echo "[smoke-staged] body=$body"
+              if [ "$code" != "200" ]; then
+                echo "[smoke-staged] FAIL: non-200 — likely a firewall or"
+                echo "                cross-DC connectivity issue. Check"
+                echo "                kubectl logs deploy/proxy-staged AND"
+                echo "                kubectl logs deploy/decoder-staged for"
+                echo "                connect-refused or transfer-engine errors."
+                exit 1
+              fi
+              if ! echo "$body" | grep -qi 'content'; then
+                echo "[smoke-staged] FAIL: no content field"
+                exit 2
+              fi
+              echo "[smoke-staged] OK — now grep for transfer_id in BOTH pods"
+              echo "                to confirm cross-DC KV xfer actually fired."

@@ -1,0 +1,87 @@
+# One-shot Job that downloads NVIDIA-Nemotron-Nano-9B-v2 to
+# /scratch/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2 on g307 via hostPath.
+#
+# Identical to 01-model-staging-job-g304.yaml except for the node pin.
+# We need the model on BOTH nodes because:
+#   - Config H runs prefiller+decoder on g304 alone
+#   - Config N runs prefiller+decoder on g307 alone
+#   - Config P runs prefiller on g304, decoder on g307 (KV crosses bootnet)
+# Each pod loads weights from the *node-local* hostPath, so each node must
+# have a complete copy. Cross-node weight sharing would need NFS or a CSI
+# driver — neither is provisioned on cluster X (DISCOVERY.md §X).
+#
+# Verification before launching any configH/configN/configP manifest:
+#   kubectl -n prfaas-stageb wait --for=condition=complete job/model-stage-g307 --timeout=45m
+#   kubectl -n prfaas-stageb logs job/model-stage-g307 --tail=30
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-stage-g307
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    app.kubernetes.io/part-of: prfaas
+    prfaas.role: model-staging
+    prfaas.node: g307
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: model-stage-g307
+        prfaas.experiment/stage: "B"
+        prfaas.role: model-staging
+        prfaas.node: g307
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: g307
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: hf-downloader
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-stageb-env
+          env:
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[stage] node=g307 target=${MODEL_LOCAL_DIR}"
+              mkdir -p "${MODEL_LOCAL_DIR}"
+              if [[ -f "${MODEL_LOCAL_DIR}/config.json" ]] && \
+                 ls "${MODEL_LOCAL_DIR}"/*.safetensors >/dev/null 2>&1; then
+                echo "[stage] model already present, skipping download"
+                du -sh "${MODEL_LOCAL_DIR}"
+                ls -lh "${MODEL_LOCAL_DIR}" | head -20
+                exit 0
+              fi
+              echo "[stage] installing huggingface_hub + hf-transfer"
+              pip install --no-cache-dir --quiet \
+                'huggingface_hub[cli,hf_transfer]==0.27.*'
+              echo "[stage] downloading ${PRIMARY_MODEL}"
+              huggingface-cli download "${PRIMARY_MODEL}" \
+                --local-dir "${MODEL_LOCAL_DIR}" \
+                --max-workers 8
+              echo "[stage] done"
+              du -sh "${MODEL_LOCAL_DIR}"
+              ls -lh "${MODEL_LOCAL_DIR}" | head -20
+          volumeMounts:
+            - name: model
+              mountPath: /models
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
+      volumes:
+        - name: model
+          hostPath:
+            path: /scratch/models
+            type: DirectoryOrCreate

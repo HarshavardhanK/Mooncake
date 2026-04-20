@@ -1,0 +1,55 @@
+# Config-P smoke: hit proxy-p with a chat completion, assert 200 +
+# non-empty content. This also implicitly validates that the cross-node
+# bootstrap path (g307 decoder dialing g304 prefiller via the headless
+# Service) is working — without it, the kv_consumer handshake never
+# completes and the request hangs.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-p
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        prfaas.experiment/stage: "B"
+        prfaas.config: "P"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "[smoke-p] hitting proxy-p..."
+              body='{"model":"nemotron-nano-9b-v2",
+                     "messages":[{"role":"user","content":"Say the single word: OK"}],
+                     "max_tokens":4,
+                     "temperature":0}'
+              # A 60s timeout — Config P needs the cross-node KV transfer
+              # to complete on the first request, which takes longer than
+              # the same-node H/N case.
+              resp=$(curl -sS --max-time 60 -w '\n__HTTP__%{http_code}' \
+                http://proxy-p.prfaas-stageb.svc.cluster.local:8000/v1/chat/completions \
+                -H 'Content-Type: application/json' \
+                -d "$body")
+              code=$(echo "$resp" | sed -n 's/^__HTTP__//p')
+              body=$(echo "$resp" | sed '/^__HTTP__/d')
+              echo "[smoke-p] http=$code"
+              echo "[smoke-p] body=$body"
+              if [ "$code" != "200" ]; then
+                echo "[smoke-p] FAIL: non-200"
+                exit 1
+              fi
+              if ! echo "$body" | grep -qi 'content'; then
+                echo "[smoke-p] FAIL: no content field"
+                exit 2
+              fi
+              echo "[smoke-p] OK"

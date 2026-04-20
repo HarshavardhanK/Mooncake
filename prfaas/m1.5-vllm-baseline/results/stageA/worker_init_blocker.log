@@ -1,0 +1,610 @@
+=== prefiller pod: prefiller-547d8c869b-5dp7v ===
+[mc-patch] applied SupportsHMA to MooncakeConnector at /usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] sanity OK: MooncakeConnector is subclass of SupportsHMA
+(APIServer pid=1) INFO 04-20 07:31:59 [utils.py:233] non-default args: {'model_tag': '/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2', 'host': '0.0.0.0', 'port': 8010, 'model': '/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2', 'trust_remote_code': True, 'max_model_len': 32768, 'served_model_name': ['nemotron-nano-9b-v2'], 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.85, 'disable_hybrid_kv_cache_manager': False, 'kv_transfer_config': KVTransferConfig(kv_connector='MooncakeConnector', engine_id='25fec78a-95f2-43a0-8bef-d590686ba8cf', kv_buffer_device='cuda', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(Worker_TP0 pid=949) INFO 04-20 07:32:53 [mooncake_connector.py:365] MooncakeConnector setting KV cache layout to HND for heterogeneous TP-safe KV transfer.
+(Worker_TP3 pid=952) INFO 04-20 07:32:55 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP1 pid=950) INFO 04-20 07:32:55 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP2 pid=951) INFO 04-20 07:32:55 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP3 pid=952) INFO 04-20 07:32:55 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP1 pid=950) INFO 04-20 07:32:55 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP0 pid=949) INFO 04-20 07:32:55 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP2 pid=951) INFO 04-20 07:32:55 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP3 pid=952) INFO 04-20 07:32:55 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP1 pid=950) INFO 04-20 07:32:55 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP2 pid=951) INFO 04-20 07:32:55 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP0 pid=949) INFO 04-20 07:32:55 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 25fec78a-95f2-43a0-8bef-d590686ba8cf
+(Worker_TP0 pid=949) INFO 04-20 07:32:55 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP3 pid=952) ERROR 04-20 07:32:55 [multiproc_executor.py:949] 
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP1 pid=950) (Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP1 pid=950) ERROR 04-20 07:32:55 [multiproc_executor.py:949] 
+ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP2 pid=951) ERROR 04-20 07:32:55 [multiproc_executor.py:949] 
+(Worker_TP0 pid=949) INFO 04-20 07:32:56 [mooncake_utils.py:70] Mooncake Bootstrap Server started at 0.0.0.0:8998
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP0 pid=949) ERROR 04-20 07:32:56 [multiproc_executor.py:949] 
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108] EngineCore failed to start.
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108] Traceback (most recent call last):
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1082, in run_engine_core
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 848, in __init__
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     super().__init__(
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 124, in __init__
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 280, in _initialize_kv_caches
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     self.model_executor.initialize_from_config(kv_cache_configs)
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/abstract.py", line 117, in initialize_from_config
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     self.collective_rpc("initialize_from_config", args=(kv_cache_configs,))
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 397, in collective_rpc
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     return aggregate(get_response())
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]                      ^^^^^^^^^^^^^^
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 380, in get_response
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108]     raise RuntimeError(
+(EngineCore pid=750) ERROR 04-20 07:32:56 [core.py:1108] RuntimeError: Worker failed with error '', please check the stack trace above for the root cause
+(EngineCore pid=750) ERROR 04-20 07:32:58 [multiproc_executor.py:273] Worker proc VllmWorker-1 died unexpectedly, shutting down executor.
+(EngineCore pid=750)     raise RuntimeError(
+(EngineCore pid=750) RuntimeError: Worker failed with error '', please check the stack trace above for the root cause
+(APIServer pid=1)     raise RuntimeError(
+(APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+=== decoder pod: decoder-5fd59678c7-h4pvn ===
+[mc-patch] applied SupportsHMA to MooncakeConnector at /usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] sanity OK: MooncakeConnector is subclass of SupportsHMA
+(APIServer pid=1) INFO 04-20 07:32:10 [utils.py:233] non-default args: {'model_tag': '/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2', 'host': '0.0.0.0', 'port': 8020, 'model': '/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2', 'trust_remote_code': True, 'max_model_len': 32768, 'served_model_name': ['nemotron-nano-9b-v2'], 'tensor_parallel_size': 4, 'gpu_memory_utilization': 0.85, 'disable_hybrid_kv_cache_manager': False, 'kv_transfer_config': KVTransferConfig(kv_connector='MooncakeConnector', engine_id='8016d444-2a6b-4529-aa34-79a74763d8a1', kv_buffer_device='cuda', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(Worker_TP0 pid=950) INFO 04-20 07:33:04 [mooncake_connector.py:365] MooncakeConnector setting KV cache layout to HND for heterogeneous TP-safe KV transfer.
+(Worker_TP0 pid=950) INFO 04-20 07:33:07 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP1 pid=951) INFO 04-20 07:33:07 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP0 pid=950) INFO 04-20 07:33:07 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP2 pid=952) INFO 04-20 07:33:07 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP1 pid=951) INFO 04-20 07:33:07 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP0 pid=950) INFO 04-20 07:33:07 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP1 pid=951) INFO 04-20 07:33:07 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP3 pid=953) INFO 04-20 07:33:07 [factory.py:64] Creating v1 connector with name: MooncakeConnector and engine_id: 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP2 pid=952) INFO 04-20 07:33:07 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP2 pid=952) INFO 04-20 07:33:07 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP3 pid=953) INFO 04-20 07:33:07 [mooncake_connector.py:661] Initializing Mooncake Transfer Engine worker 8016d444-2a6b-4529-aa34-79a74763d8a1
+(Worker_TP3 pid=953) INFO 04-20 07:33:07 [mooncake_connector.py:681] The Mooncake Transfer Engine is using rdma as its protocol.
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP0 pid=950) ERROR 04-20 07:33:07 [multiproc_executor.py:949] 
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP1 pid=951) ERROR 04-20 07:33:07 [multiproc_executor.py:949] 
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP3 pid=953) ERROR 04-20 07:33:07 [multiproc_executor.py:949] 
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] WorkerProc hit an exception.
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] Traceback (most recent call last):
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 944, in worker_busy_loop
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     output = func(*args, **kwargs)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 306, in initialize_from_config
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return func(*args, **kwargs)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 527, in initialize_from_config
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 67, in ensure_kv_transfer_initialized
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 82, in create_connector
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     return connector_cls(config, role, kv_cache_config)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 351, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.connector_worker = MooncakeConnectorWorker(vllm_config, self.engine_id)
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py", line 773, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     self.kv_topo = TpKVTopology(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                    ^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "<string>", line 12, in __init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/utils.py", line 345, in __post_init__
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     kv_cache_shape: tuple[int, ...] = attn_backend.get_kv_cache_shape(
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backend.py", line 91, in get_kv_cache_shape
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949]     raise NotImplementedError
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] NotImplementedError
+(Worker_TP2 pid=952) ERROR 04-20 07:33:07 [multiproc_executor.py:949] 
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108] EngineCore failed to start.
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108] Traceback (most recent call last):
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1082, in run_engine_core
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 848, in __init__
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     super().__init__(
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 124, in __init__
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     return func(*args, **kwargs)
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 280, in _initialize_kv_caches
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     self.model_executor.initialize_from_config(kv_cache_configs)
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/abstract.py", line 117, in initialize_from_config
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     self.collective_rpc("initialize_from_config", args=(kv_cache_configs,))
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 397, in collective_rpc
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     return aggregate(get_response())
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]                      ^^^^^^^^^^^^^^
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 380, in get_response
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108]     raise RuntimeError(
+(EngineCore pid=751) ERROR 04-20 07:33:07 [core.py:1108] RuntimeError: Worker failed with error '', please check the stack trace above for the root cause
+(EngineCore pid=751) ERROR 04-20 07:33:09 [multiproc_executor.py:273] Worker proc VllmWorker-3 died unexpectedly, shutting down executor.
+(EngineCore pid=751)     raise RuntimeError(
+(EngineCore pid=751) RuntimeError: Worker failed with error '', please check the stack trace above for the root cause
+(APIServer pid=1)     raise RuntimeError(
+(APIServer pid=1) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}

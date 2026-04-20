@@ -1,0 +1,22 @@
+# Headless ClusterIP for the Mooncake bootstrap port (8998) — Config H.
+# Decoder-h dials prefiller-h-bootstrap.prfaas-stageb.svc.cluster.local:8998
+# during the kv_consumer handshake. Cilium routes within the same node
+# (both pods on g304) without going through the bootnet NIC.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-h-bootstrap
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "H"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  clusterIP: None
+  selector:
+    app: prefiller-h
+  ports:
+    - name: bootstrap
+      port: 8998
+      targetPort: bootstrap
+      protocol: TCP

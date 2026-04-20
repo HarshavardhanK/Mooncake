@@ -1,0 +1,19 @@
+# Headless ClusterIP for the Mooncake bootstrap port (8998) — Config N.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-n-bootstrap
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "N"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  clusterIP: None
+  selector:
+    app: prefiller-n
+  ports:
+    - name: bootstrap
+      port: 8998
+      targetPort: bootstrap
+      protocol: TCP

@@ -1,0 +1,18 @@
+# Front-door OpenAI HTTP for the prefiller; consumed by the proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-api
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: prefiller
+  ports:
+    - name: http
+      port: 8010
+      targetPort: api
+      protocol: TCP

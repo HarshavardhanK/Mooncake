@@ -1,0 +1,142 @@
+# Stage B / Config H — prefiller on g304 (single-node PD).
+#
+# Both prefiller and decoder run on g304 with TP=4 each, sharing the 8
+# GPUs of one node. Mooncake transport is TCP-via-loopback (or pod-IP-on-
+# bootnet, indistinguishable to vLLM). This is the homogeneous
+# decode-only baseline for Stage B's Λ_max(H).
+#
+# Names are suffixed `-h` so we can run all three configs in the same
+# namespace if desired and tear them down with the per-config label
+# selector:
+#   kubectl -n prfaas-stageb delete deploy,svc,job \
+#     -l prfaas.experiment/stage=B,prfaas.config=H
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefiller-h
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "H"
+    app.kubernetes.io/part-of: prfaas
+    app: prefiller-h
+    prfaas.role: kv_producer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prefiller-h
+  template:
+    metadata:
+      labels:
+        app: prefiller-h
+        prfaas.experiment/stage: "B"
+        prfaas.config: "H"
+        prfaas.role: kv_producer
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: model
+          hostPath:
+            # Pre-staged by job/model-stage-g304. type: Directory makes the
+            # pod fail-fast if staging hasn't run yet, instead of silently
+            # creating an empty dir and ImagePullBackOff'ing on missing weights.
+            path: /scratch/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2
+            type: Directory
+        - name: mc-pip
+          emptyDir: {}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      initContainers:
+        - name: install-mooncake
+          image: python:3.11-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1'
+              python -c "import sys; sys.path.insert(0,'/opt/mc'); import mooncake; print('mooncake', mooncake.__file__)"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.19.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-stageb-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            - name: VLLM_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[prefiller-h] sanity"
+              command -v python3 && python3 --version
+              python3 -c "import vllm, mooncake; print('vllm', vllm.__version__, 'mooncake', mooncake.__file__)" || \
+                echo "[prefiller-h] sanity import failed (continuing)"
+              nvidia-smi -L || true
+              exec python3 -m vllm.entrypoints.openai.api_server \
+                --model "${MODEL_LOCAL_DIR}" \
+                --served-model-name "${SERVED_MODEL_NAME}" \
+                --host 0.0.0.0 \
+                --port "${PREFILLER_API_PORT}" \
+                --tensor-parallel-size "${TENSOR_PARALLEL_SIZE}" \
+                --max-model-len "${MAX_MODEL_LEN}" \
+                --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION}" \
+                --trust-remote-code \
+                --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer"}'
+          ports:
+            - name: api
+              containerPort: 8010
+            - name: bootstrap
+              containerPort: 8998
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 300
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "4"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "4"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+              readOnly: true
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm

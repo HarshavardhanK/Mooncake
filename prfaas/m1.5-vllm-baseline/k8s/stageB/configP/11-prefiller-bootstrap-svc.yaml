@@ -1,0 +1,29 @@
+# Headless ClusterIP for the Mooncake bootstrap port (8998) — Config P.
+#
+# This is the cross-node Service. The decoder-p pod (on g307) dials
+#   prefiller-p-bootstrap.prfaas-stageb.svc.cluster.local:8998
+# and Cilium routes the traffic to the prefiller-p pod (on g304) via the
+# pod-overlay (which rides on bootnet's 100 Gbps LACP underlay). No
+# NodePort, no hostNetwork — just regular CNI east-west.
+#
+# Sanity test from the decoder pod:
+#   getent hosts prefiller-p-bootstrap.prfaas-stageb.svc.cluster.local
+#   nc -vz prefiller-p-bootstrap.prfaas-stageb.svc.cluster.local 8998
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-p-bootstrap
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  clusterIP: None
+  selector:
+    app: prefiller-p
+  ports:
+    - name: bootstrap
+      port: 8998
+      targetPort: bootstrap
+      protocol: TCP

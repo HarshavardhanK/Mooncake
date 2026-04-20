@@ -1,0 +1,18 @@
+# Front-door OpenAI HTTP for the decoder; consumed by the proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: decoder-api
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: decoder
+  ports:
+    - name: http
+      port: 8020
+      targetPort: api
+      protocol: TCP

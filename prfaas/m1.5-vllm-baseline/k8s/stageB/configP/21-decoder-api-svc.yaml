@@ -1,0 +1,19 @@
+# Front-door OpenAI HTTP for the Config-P decoder; consumed by proxy-p.
+apiVersion: v1
+kind: Service
+metadata:
+  name: decoder-p-api
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: decoder-p
+  ports:
+    - name: http
+      port: 8020
+      targetPort: api
+      protocol: TCP

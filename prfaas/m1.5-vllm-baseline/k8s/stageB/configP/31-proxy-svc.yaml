@@ -1,0 +1,19 @@
+# ClusterIP front-door for the Config-P proxy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy-p
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: proxy-p
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

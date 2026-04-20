@@ -1,0 +1,211 @@
+# Decoder: vLLM v1, kv_role=kv_consumer, TP=4, port 8020.
+#
+# Connects back to prefiller via the headless prefiller-bootstrap Service
+# during request handling (the proxy injects remote_host/remote_port in
+# the kv_transfer_params so the decoder knows which prefiller to fetch
+# from).
+#
+# Same SupportsHMA in-place patch as 10-prefiller.yaml — see comment header
+# there and prfaas/m1.5-vllm-baseline/results/stageA/MC_PATCH_NOTE.md for
+# why we patch instead of bumping vLLM (v0.19.1 is the latest release;
+# upstream FA+Mamba2 NIXL support is RFC-only at PR #36687).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decoder
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+    app: decoder
+    prfaas.role: kv_consumer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: decoder
+  template:
+    metadata:
+      labels:
+        app: decoder
+        prfaas.role: kv_consumer
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights
+        - name: mc-pip
+          emptyDir: {}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      initContainers:
+        - name: install-mooncake
+          image: python:3.12-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1'
+              python -c "import sys; sys.path.insert(0,'/opt/mc'); import mooncake; print('mooncake', mooncake.__file__)"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.19.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-stagea-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            - name: VLLM_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[decoder] sanity"
+              command -v python3 && python3 --version
+              python3 -c "import vllm, mooncake; print('vllm', vllm.__version__, 'mooncake', mooncake.__file__)" || \
+                echo "[decoder] sanity import failed (continuing)"
+              nvidia-smi -L || true
+
+              echo "[mc-patch] writing patch script"
+              cat > /tmp/mc_patch.py <<'PYEOF'
+              # In-place patch: make vLLM v0.19.1 MooncakeConnector subclass
+              # SupportsHMA so the hybrid memory allocator gate (introduced in
+              # vllm-project/vllm PR #25712 and enforced for connectors in
+              # PR #27592) lets FA+Mamba2 hybrids start. Idempotent.
+              import os, re, sys
+              import vllm
+              vllm_dir = os.path.dirname(vllm.__file__)
+              print(f"[mc-patch] vllm_dir={vllm_dir}", flush=True)
+              candidates = [
+                  os.path.join(vllm_dir, "distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py"),
+                  os.path.join(vllm_dir, "distributed/kv_transfer/kv_connector/v1/mooncake_connector.py"),
+                  os.path.join(vllm_dir, "distributed/kv_transfer/kv_connector/v1/mooncake.py"),
+              ]
+              target = next((c for c in candidates if os.path.exists(c)), None)
+              if target is None:
+                  print(f"[mc-patch] FATAL: MooncakeConnector source not found in {candidates}", flush=True)
+                  sys.exit(2)
+              print(f"[mc-patch] target={target}", flush=True)
+              with open(target, "r") as f:
+                  src = f.read()
+              if "SupportsHMA" in src:
+                  print("[mc-patch] already patched (SupportsHMA present); skipping edits", flush=True)
+              else:
+                  import_pat = re.compile(
+                      r"(from vllm\.distributed\.kv_transfer\.kv_connector\.v1\.base import \([^)]*?KVConnectorRole,\s*)\)",
+                      re.DOTALL,
+                  )
+                  src, n = import_pat.subn(r"\1    SupportsHMA,\n)", src, count=1)
+                  if n != 1:
+                      print("[mc-patch] FATAL: could not patch base import block", flush=True)
+                      sys.exit(3)
+                  src, n = re.subn(
+                      r"class MooncakeConnector\(KVConnectorBase_V1\):",
+                      "class MooncakeConnector(KVConnectorBase_V1, SupportsHMA):",
+                      src, count=1,
+                  )
+                  if n != 1:
+                      print("[mc-patch] FATAL: could not patch class declaration", flush=True)
+                      sys.exit(4)
+                  method = (
+                      "    def request_finished_all_groups(\n"
+                      "        self,\n"
+                      "        request: \"Request\",\n"
+                      "        block_ids: tuple[list[int], ...],\n"
+                      "    ) -> tuple[bool, dict[str, Any] | None]:\n"
+                      "        # Patched in-place to satisfy the SupportsHMA contract.\n"
+                      "        # Collapse all KV cache groups (e.g. FA + Mamba2) into one\n"
+                      "        # flat list and delegate to the existing single-group\n"
+                      "        # request_finished. Minimum viable shim that unblocks the\n"
+                      "        # hybrid-allocator gate so the engine can start. Cross-DC\n"
+                      "        # fidelity for FA+Mamba2 SSM state is NOT verified by this\n"
+                      "        # patch and is the subject of Stage D.\n"
+                      "        flat: list[int] = [b for group in block_ids for b in group]\n"
+                      "        return self.request_finished(request, flat)\n\n"
+                  )
+                  divider = "    ############################################################\n    # Worker Side Methods\n"
+                  if divider not in src:
+                      print("[mc-patch] FATAL: could not find Worker Side Methods divider", flush=True)
+                      sys.exit(5)
+                  src = src.replace(divider, method + divider, 1)
+                  with open(target, "w") as f:
+                      f.write(src)
+                  print(f"[mc-patch] applied SupportsHMA to MooncakeConnector at {target}", flush=True)
+              # Sanity-import the patched module fresh and assert subclassing.
+              import importlib, sys as _sys
+              mod_name = "vllm.distributed.kv_transfer.kv_connector.v1.mooncake.mooncake_connector"
+              if mod_name in _sys.modules:
+                  del _sys.modules[mod_name]
+              m = importlib.import_module(mod_name)
+              from vllm.distributed.kv_transfer.kv_connector.v1.base import SupportsHMA
+              assert issubclass(m.MooncakeConnector, SupportsHMA), "patch did not take"
+              print("[mc-patch] sanity OK: MooncakeConnector is subclass of SupportsHMA", flush=True)
+              PYEOF
+              python3 /tmp/mc_patch.py
+              echo "[mc-patch] done"
+
+              exec vllm serve "${MODEL_LOCAL_DIR}" \
+                --served-model-name nemotron-nano-9b-v2 \
+                --host 0.0.0.0 \
+                --port "${DECODER_API_PORT}" \
+                --tensor-parallel-size "${TENSOR_PARALLEL_SIZE}" \
+                --max-model-len 32768 \
+                --gpu-memory-utilization 0.85 \
+                --trust-remote-code \
+                --no-disable-hybrid-kv-cache-manager \
+                --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_consumer"}'
+          ports:
+            - name: api
+              containerPort: 8020
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 300
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "4"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "4"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+              readOnly: true
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm
