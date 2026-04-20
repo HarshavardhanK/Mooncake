@@ -71,7 +71,7 @@ firewall question to the operator.
 **Verifier:** `preflight_check.sh` exits 0 on all three nodes.
 
 ### Phase 3 — Stage 0a: characterize the wire (~30 min × 3 time-of-day)
-- Open firewall on X (ports 13000–13999, 10001, 2379) scoped to Y_PUBLIC_IP.
+- Open firewall on X (ports 13000–17000) scoped to Y_PUBLIC_IP.
   Same on Y for X_GATEWAY_PUBLIC_IP. Idempotent via `firewall_setup.sh`.
 - Run `transfer_engine_lat_bench` matrix between g304 (target) and g126
   (initiator). Drives `run_stage_0a.sh`.
@@ -79,6 +79,20 @@ firewall question to the operator.
 
 **Verifier:** `extract_lambda_max.py --decide-model` writes
 `results/stage0/MODEL_DECISION.md`. Decision tree → primary model.
+
+#### Phase 3 status — DONE for window 1 (2026-04-20T04:36 UTC)
+
+- See `results/stage0a/SUMMARY.md` and `results/stage0a/MODEL_DECISION.md`.
+- **Wire ceiling:** 14.7 Gbps median sustained (best 16.2 Gbps, worst-case
+  no-pool 3.6 Gbps). RTT 29.75 ms. g126 (DFW) ↔ g304 (IAD), public Internet.
+- **Primary model decided:** `nvidia/NVIDIA-Nemotron-Nano-9B-v2`,
+  2 prefill replicas × TP=4. Fits the ≥10 Gbps branch of SIZING.md §4 with
+  ~50% headroom per replica.
+- **Mandatory transport knob:** `MC_TCP_ENABLE_CONNECTION_POOL=1`
+  (turning it off collapses goodput 4×).
+- **Still open:** two more time-of-day windows (peak-US, EU-business)
+  before the 14.7 Gbps median is "the median" rather than "Sunday night".
+  Tracked as Stage 0a-bis.
 
 ### Phase 4 — Stage A: localhost smoke on Y (~1–2 h)
 Validates Mooncake master + vLLM kv-transfer + proxy on a single box,

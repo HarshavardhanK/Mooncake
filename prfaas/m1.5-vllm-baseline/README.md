@@ -66,10 +66,10 @@ prfaas/m1.5-vllm-baseline/
 
 | Stage | Goal | Status |
 |---|---|---|
-| 0a   | Real WAN transport baseline | 📋 blocked on PREFLIGHT.md |
+| 0a   | Real WAN transport baseline (g126 ↔ g304, public Internet) | ✅ window 1 done — see [`results/stage0a/SUMMARY.md`](./results/stage0a/SUMMARY.md). Median 14.7 Gbps / RTT 29.75 ms. → primary model decided in [`results/stage0a/MODEL_DECISION.md`](./results/stage0a/MODEL_DECISION.md): `nvidia/NVIDIA-Nemotron-Nano-9B-v2`, 2 prefill replicas. Two more time-of-day windows pending (Stage 0a-bis). |
 | 0b   | WireGuard tunnel ablation (one-off cost number) | 📋 |
-| A    | Single-machine 1P1D smoke on Y | 📋 blocked on node_setup |
-| B    | X1↔X2 over IB-as-TCP, 3-config Λ_max sweep | 📋 |
+| A    | Single-machine 1P1D smoke on Y (Nemotron-Nano-9B-v2) | 📋 unblocked — bring up Mooncake master + vLLM 1P1D on g126 over loopback |
+| B    | X1↔X2 over IB-as-TCP, 3-config Λ_max sweep | 📋 blocked on X-side GPU access (k8s GPU Operator owns devices today; see [`discovery/VP_SUPPORT_TICKET.md`](./discovery/VP_SUPPORT_TICKET.md)) |
 | C    | Stage B + `tc netem` continental profile | 📋 |
 | D    | Real cross-DC over public internet, three time-of-day repeats | 📋 |
 

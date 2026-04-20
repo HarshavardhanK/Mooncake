@@ -1,4 +1,6 @@
 # Bench output is environment-specific; keep the dir but ignore generated files.
+# Whitelist the per-stage SUMMARY.md / MODEL_DECISION.md and the canonical CSV
+# we explicitly check in as evidence.
 *.csv
 *.log
 *.png
@@ -6,3 +8,8 @@
 *.md
 !.gitignore
 !README.md
+!stage*/SUMMARY.md
+!stage*/MODEL_DECISION.md
+# A single canonical CSV per stage may be checked in by name; commit it
+# explicitly with `git add -f` if needed, or place under a subdir.
+!stage*/*-to-*.csv
