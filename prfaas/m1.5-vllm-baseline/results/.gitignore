@@ -1,0 +1,8 @@
+# Bench output is environment-specific; keep the dir but ignore generated files.
+*.csv
+*.log
+*.png
+*.json
+*.md
+!.gitignore
+!README.md

@@ -1,0 +1,7 @@
+{
+    "local_hostname": "${LOCAL_HOSTNAME}",
+    "metadata_server": "etcd://${X_GATEWAY_INTERNAL_IP}:${ETCD_PORT}",
+    "protocol": "tcp",
+    "device_name": "",
+    "master_server_address": "${X_GATEWAY_INTERNAL_IP}:${MOONCAKE_MASTER_PORT}"
+}
