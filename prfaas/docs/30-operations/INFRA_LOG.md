@@ -3,8 +3,8 @@
 This document records every infrastructure-level event we hit during the
 work — the actual operator pain points, with diagnosis and resolution —
 so the next operator doesn't pay the same costs we did. It is the
-companion to [`PROJECT_LOG.md`](./PROJECT_LOG.md) §research-and-data and
-[`DECISIONS.md`](./DECISIONS.md) §design-choices.
+companion to [`PROJECT_LOG.md`](../00-overview/PROJECT_LOG.md) §research-and-data and
+[`DECISIONS.md`](../20-decisions/DECISIONS.md) §design-choices.
 
 Sections:
 

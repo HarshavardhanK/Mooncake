@@ -7,7 +7,7 @@ Skv(l) analytically from the model's config.json, and emits one JSONL
 record per (model, l) cell.
 
 This is the implementation of the methodology in
-`prfaas/PHASE1_PHIKV_PLAN.md`. Read that first.
+`prfaas/docs/10-paper/PHASE1_PHIKV_PLAN.md`. Read that first.
 
 Usage (inside a sglang container that has the model served on localhost):
 
@@ -19,7 +19,7 @@ Usage (inside a sglang container that has the model served on localhost):
         --base-url http://127.0.0.1:30000 \
         --ctx-lens 1024,2048,4096,8192,16384,32768,65536,131072 \
         --warmup 5 --timed 20 \
-        --output /results/kimi-linear-48b.jsonl
+        --output /results/m1.5-vllm-baseline/phase1_phi_kv/kimi-linear-48b.jsonl
 
 Exit code 0 only if every cell completed successfully. Cells that 4xx/5xx
 or time out are emitted as records with `error: "..."` and the script exits

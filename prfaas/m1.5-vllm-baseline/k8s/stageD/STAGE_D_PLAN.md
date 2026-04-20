@@ -7,7 +7,7 @@ cluster. NO commits, NO image bakes. Operator owns all cluster mutations.
 and the decoder in cluster Y (g126, dfw1-beta), with KV cache crossing the
 public Internet on the Mooncake transport. Headline metric is
 `Λ_max(P) / Λ_max(H)` per workload per time-of-day window (see
-`prfaas/EXPERIMENT_PLAN.md` §5 Stage D).
+`prfaas/docs/00-overview/EXPERIMENT_PLAN.md` §5 Stage D).
 
 **Inputs that drive every decision below:**
 - Wire (Stage 0a): 14.7 Gbps median, 29.75 ms RTT, p50/p95/p99 batch latency

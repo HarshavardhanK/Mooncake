@@ -7,7 +7,7 @@ models — vLLM v0.19.1's `MooncakeConnector` cannot serve them even with
 the `SupportsHMA` shim applied. Full evidence in
 [`../../../results/stageA/`](../../../results/stageA/).
 
-**Replaces** `prfaas/m1.5-vllm-baseline/STAGE_A_PLAN.md` (host-install
+**Replaces** `prfaas/docs/40-milestones/m1.5-vllm-baseline/STAGE_A_PLAN.md` (host-install
 version). The host plan is kept for archive only — DO NOT use it.
 
 **Purpose:** prove the Mooncake-vLLM v1 disaggregated stack works
@@ -183,7 +183,7 @@ bytes are freed too. Background pod terminations finish in <30 s.
    the token mounted as `HUGGING_FACE_HUB_TOKEN`.
 
 4. **Hybrid-model swap-back.** When upstream lands a hybrid-aware
-   connector (see `prfaas/PAPER_MODEL_PLAN.md`), reverting Stage A to
+   connector (see `prfaas/docs/10-paper/PAPER_MODEL_PLAN.md`), reverting Stage A to
    Nemotron is a one-line ConfigMap edit:
    ```bash
    kubectl patch configmap prfaas-stagea-env --type=merge -p \

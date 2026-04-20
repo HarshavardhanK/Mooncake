@@ -201,7 +201,7 @@ Pull the results back:
 ```bash
 # Either via SSH directly to g126:
 rsync -avz ubuntu@147.185.40.126:/scratch/prfaas/results/stageD/ \
-  ./prfaas/m1.5-vllm-baseline/results/stageD/
+  ./prfaas/results/m1.5-vllm-baseline/stageD/
 
 # or kubectl cp from the (still-existing) bench pod:
 POD=$(KUBECONFIG=$Y_KC kubectl -n default get pod -l job-name=bench-staged -o name)

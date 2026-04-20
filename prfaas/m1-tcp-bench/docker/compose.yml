@@ -62,7 +62,9 @@ services:
     entrypoint: []
     command: ["sleep", "infinity"]
     volumes:
-      - ../results:/work/results     # initiator writes CSVs here
+      # Initiator writes CSVs into the consolidated results tree at
+      # prfaas/results/m1-tcp-bench/.
+      - ../../results/m1-tcp-bench:/work/results
 
 networks:
   wan:

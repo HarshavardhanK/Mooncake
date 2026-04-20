@@ -54,7 +54,7 @@ the active deployment surface for any serving stage.
 - Reproducibility is high: every cell is `kubectl apply -f`.
 - Disk pressure on g126 is now a recurring failure mode because the
   `local-path` provisioner shares the kubelet imagefs (see
-  [`INFRA_LOG.md`](./INFRA_LOG.md) §1).
+  [`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) §1).
 - `default`-namespace-only RBAC on Y constrains us — we can't taint
   nodes, can't use namespaces for isolation, can't mass-delete cluster
   pods. Manageable but documented.
@@ -120,7 +120,7 @@ everywhere".
 cannot serve any hybrid Mamba2+attn model on the released code path —
 `TpKVTopology.get_kv_cache_shape` raises `NotImplementedError` on the
 Mamba2 backend. Three theoretical paths exist to unblock hybrids
-(captured in [`PAPER_MODEL_PLAN.md`](./PAPER_MODEL_PLAN.md)):
+(captured in [`PAPER_MODEL_PLAN.md`](../10-paper/PAPER_MODEL_PLAN.md)):
 
 - **Path A — wait for upstream vLLM.** Unbounded ETA; each minute we
   wait is a minute we're not generating data on the only model class
@@ -296,7 +296,7 @@ the first run as a probe-script-bug postmortem.
 - One re-run cost (~60 minutes wall time on g126 TP=8).
 - The headline numbers in the table are the post-fix values.
 - Writeup of the first-run anomaly is preserved in
-  `prfaas/results/phase1_phi_kv/RUN_NOTES.md` for transparency.
+  `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/RUN_NOTES.md` for transparency.
 
 **Alternatives rejected.**
 
@@ -576,7 +576,7 @@ container start with an obvious symbol mismatch.
 
 **Decision.** Pin `lmsysorg/sglang:v0.5.9-cu129-amd64` for every
 Phase 1 manifest. Document the driver-CUDA correspondence in
-[`INFRA_LOG.md`](./INFRA_LOG.md) §4 so future image bumps check the
+[`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) §4 so future image bumps check the
 driver first.
 
 **Consequences.**

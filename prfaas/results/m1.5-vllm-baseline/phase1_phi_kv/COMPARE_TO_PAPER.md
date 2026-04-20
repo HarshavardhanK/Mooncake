@@ -11,7 +11,7 @@ length) and §5.1 case study.
 | 1 | All target models have JSONL files with all 8 context-length cells populated. | partial — Kimi-Linear (8/8) and Qwen2.5-72B (5/5 within `max_position_embeddings`) are complete; Nemotron has 7/8 + 1 explicit error at `l = max_position_embeddings`. |
 | 2 | Kimi-Linear Φkv at 32 K within ±20% of the paper's value. | **needs paper number** — see §"Direct paper diff" below. |
 | 3 | Dense control's Φkv ≥ 5× the hybrid's Φkv at 32 K. | **N/A at 32 K** (Qwen2.5-72B's stock `max_position_embeddings = 32768`, our prompt-builder reserves 128 token-headroom and so we cap at 32 639). At **16 K**, dense/hybrid = **53.80 / 5.81 = 9.3×**, comfortably above the 5× target. |
-| 4 | Numbers committed under `prfaas/results/phase1_phi_kv/` and cited from `EXPERIMENT_PLAN.md` v0.4. | done in this commit. |
+| 4 | Numbers committed under `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/` and cited from `EXPERIMENT_PLAN.md` v0.4. | done in this commit. |
 
 ## Qualitative claim — replicated
 

@@ -4,7 +4,7 @@
 (paper Eq 3-8). One row per (model, input_len) cell, measured on g126 with
 SGLang v0.5.9-cu129-amd64 in single-replica, single-concurrency mode with
 `--disable-radix-cache --max-running-requests 1` (paper-faithful, see
-[`PHASE1_PHIKV_PLAN.md`](../../PHASE1_PHIKV_PLAN.md) §4).
+[`PHASE1_PHIKV_PLAN.md`](../../../docs/10-paper/PHASE1_PHIKV_PLAN.md) §4).
 
 **Hardware:** 8× NVIDIA H100 80 GB SXM5 on `g126`.
 **Engine:** SGLang `v0.5.9-cu129-amd64`.

@@ -2,7 +2,7 @@
 # /scratch/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2 on g304 via hostPath.
 #
 # Why per-node Jobs and not a shared PVC: cluster X has NO StorageClass
-# (see prfaas/m1.5-vllm-baseline/k8s/DISCOVERY.md §"X cluster"). Pre-staging
+# (see prfaas/docs/40-milestones/m1.5-vllm-baseline/K8S_DISCOVERY.md §"X cluster"). Pre-staging
 # the model into each node's local /scratch (14 TB free per DISCOVERY) is
 # the simplest path that still keeps `kubectl apply` as the only host
 # touch.

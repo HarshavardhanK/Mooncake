@@ -33,9 +33,9 @@ green.
    `attn_backend.get_kv_cache_shape()` on every layer, the Mamba2 backend
    raises `NotImplementedError`, and the SupportsHMA gate flip alone
    doesn't help. Captured as the first paper-relevant finding in
-   [`../results/stageA/MC_PATCH_NOTE.md`](../results/stageA/MC_PATCH_NOTE.md).
+   [`../results/stageA/MC_PATCH_NOTE.md`](../../../results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md).
 3. **Hybrid models live in a separate workstream now**, tracked in
-   [`../PAPER_MODEL_PLAN.md`](../PAPER_MODEL_PLAN.md). Stages A→B→C→D run
+   [`../PAPER_MODEL_PLAN.md`](../../10-paper/PAPER_MODEL_PLAN.md). Stages A→B→C→D run
    the wire baseline on dense in parallel.
 4. **The bundled `mooncake.vllm_v1_proxy_server` does not drive the full
    v1 PD protocol** (no `transfer_id` field). Stage A smoke completes
@@ -144,7 +144,7 @@ prefiller (TP=4, kv_producer) + decoder (TP=4, kv_consumer) + proxy
 `vllm/vllm-openai:v0.19.1` with an initContainer that pip-installs
 `mooncake-transfer-engine==0.3.10.post1` and an in-place patch script
 that subclasses `SupportsHMA` onto the bundled `MooncakeConnector` (see
-header of `10-prefiller.yaml` + [`../results/stageA/MC_PATCH_NOTE.md`](../results/stageA/MC_PATCH_NOTE.md)).
+header of `10-prefiller.yaml` + [`../results/stageA/MC_PATCH_NOTE.md`](../../../results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md)).
 
 **Verifier (achieved):**
 - Smoke job: `HTTP 200`, body `…"content":"OK"…`, model echoes back as
@@ -168,7 +168,7 @@ proxy with the upstream reference impl from
 
 **Negative finding (kept as primary evidence):** Nemotron-Nano-9B-v2
 crashes deeper than `SupportsHMA`. Hybrid follow-up tracked in
-[`../PAPER_MODEL_PLAN.md`](../PAPER_MODEL_PLAN.md).
+[`../PAPER_MODEL_PLAN.md`](../../10-paper/PAPER_MODEL_PLAN.md).
 
 ### Phase 5 — Stage B: IB-as-TCP three-config sweep (~6 h)
 Three runs on cluster X (g304 + g307):

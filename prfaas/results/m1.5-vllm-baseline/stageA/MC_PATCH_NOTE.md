@@ -23,7 +23,7 @@ This is the first PrfaaS-paper-relevant finding the rig has produced: the
 paper claims hybrid-attention models are *the* class that justifies
 cross-DC prefill offload, but the open-source connector path to actually
 serve them is broken at the latest released vLLM version. Re-running
-hybrid models is tracked in `prfaas/PAPER_MODEL_PLAN.md`.
+hybrid models is tracked in `prfaas/docs/10-paper/PAPER_MODEL_PLAN.md`.
 
 ## Layered failures we observed (in the order vLLM tripped over them)
 

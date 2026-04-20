@@ -43,7 +43,7 @@ n_rag=$(( MIX_TOTAL_PROMPTS * 25 / 100 ))
 n_long=$(( MIX_TOTAL_PROMPTS - n_chat - n_rag ))
 
 ts="$(date +%Y%m%d-%H%M%S)"
-out_dir="${M15_DIR}/results/${STAGE_TAG}/${PRIMARY_MODEL_TAG}/mixed_trace/${ts}"
+out_dir="${M15_RESULTS_DIR}/${STAGE_TAG}/${PRIMARY_MODEL_TAG}/mixed_trace/${ts}"
 mkdir -p "${out_dir}"
 
 VLLM_PKG_DIR="$("${PRFAAS_VENV}/bin/python" -c 'import vllm, os; print(os.path.dirname(vllm.__file__))')"

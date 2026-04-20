@@ -138,7 +138,7 @@ hybrid runs is a paper-fidelity *gain*, not a workaround.
    Nemotron-Nano-9B-v2 (adjacent hybrid) on g126. Single-instance, no
    wire, no PD-disagg — just Φkv per (model, context length).
    Manifests: `prfaas/m1.5-vllm-baseline/k8s/phase1/`.
-   Plan: `prfaas/PHASE1_PHIKV_PLAN.md`.
+   Plan: `prfaas/docs/10-paper/PHASE1_PHIKV_PLAN.md`.
 2. **Phase 2 (next).** Implement paper Eq 3-8, feed Phase 1's Φkv +
    Stage 0a's 14.7 Gbps wire, regenerate Λ_max(BW, SLO). Pick the hybrid
    that the analytical model says fits our wire as Phase 3's target.

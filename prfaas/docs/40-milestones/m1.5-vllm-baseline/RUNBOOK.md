@@ -35,7 +35,7 @@ TARGET_RPC_PORT=<from above> \
 ```
 
 **Output:** three CSVs under
-`prfaas/m1-tcp-bench/results/cross_dc_xy/<timestamp>/results.csv`. Each row
+`prfaas/results/m1-tcp-bench/cross_dc_xy/<timestamp>/results.csv`. Each row
 is one cell of the M1 matrix (slice × threads × conn-pool).
 
 **Decide model:**
@@ -43,8 +43,8 @@ is one cell of the M1 matrix (slice × threads × conn-pool).
 ```bash
 python3 prfaas/m1.5-vllm-baseline/scripts/extract_lambda_max.py \
   --decide-model \
-  --stage0-results prfaas/m1-tcp-bench/results/cross_dc_xy/ \
-  --out prfaas/m1.5-vllm-baseline/results/stage0/MODEL_DECISION.md
+  --stage0-results prfaas/results/m1-tcp-bench/cross_dc_xy/ \
+  --out prfaas/results/m1.5-vllm-baseline/stage0/MODEL_DECISION.md
 ```
 
 **Go/no-go:**
@@ -117,7 +117,7 @@ transfer messages.
 
 ```bash
 WORKLOAD=chat_balanced CONCURRENCY=16 \
-RESULTS_DIR=prfaas/m1.5-vllm-baseline/results/stageA \
+RESULTS_DIR=prfaas/results/m1.5-vllm-baseline/stageA \
   bash prfaas/m1.5-vllm-baseline/scripts/run_concurrency_sweep.sh \
     --proxy-port 8000 --model $SMOKE_MODEL
 ```

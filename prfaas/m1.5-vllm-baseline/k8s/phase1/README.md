@@ -1,7 +1,7 @@
 # Phase 1 — Φkv replication on cluster Y (g126)
 
 This directory contains the K8s manifests for the paper-faithful Phase 1
-work described in `prfaas/PHASE1_PHIKV_PLAN.md`.
+work described in `prfaas/docs/10-paper/PHASE1_PHIKV_PLAN.md`.
 
 ## Bring-up
 
@@ -36,8 +36,8 @@ $K wait --for=condition=complete --timeout=60m job/phi-kv-profiler-kimi-linear-4
 
 # 4. Pull the result file out of the PVC for committing.
 POD=$($K get pod -l job-name=phi-kv-profiler-kimi-linear-48b -o jsonpath='{.items[0].metadata.name}')
-$K cp $POD:/results/kimi-linear-48b.jsonl ../../../results/phase1_phi_kv/kimi-linear-48b.jsonl
-$K cp $POD:/results/kimi-linear-48b.sglang.log ../../../results/phase1_phi_kv/kimi-linear-48b.sglang.log
+$K cp $POD:/results/kimi-linear-48b.jsonl ../../../results/m1.5-vllm-baseline/phase1_phi_kv/kimi-linear-48b.jsonl
+$K cp $POD:/results/kimi-linear-48b.sglang.log ../../../results/m1.5-vllm-baseline/phase1_phi_kv/kimi-linear-48b.sglang.log
 
 # 5. Repeat for D1 (Qwen2.5-72B-Instruct, paper-faithful dense control).
 $K apply -f 03-model-staging-job-qwen72b.yaml
@@ -49,12 +49,12 @@ $K delete job phi-kv-profiler-kimi-linear-48b
 
 $K apply -f 11-profiler-qwen72b.yaml
 $K wait --for=condition=complete --timeout=120m job/phi-kv-profiler-qwen2-5-72b
-$K cp <pod>:/results/qwen2.5-72b-instruct.jsonl ../../../results/phase1_phi_kv/
+$K cp <pod>:/results/qwen2.5-72b-instruct.jsonl ../../../results/m1.5-vllm-baseline/phase1_phi_kv/
 
 # 6. Repeat for H2 (Nemotron-Nano-9B-v2, adjacent hybrid).
 $K apply -f 12-profiler-nemotron.yaml
 $K wait --for=condition=complete --timeout=60m job/phi-kv-profiler-nemotron-nano-9b-v2
-$K cp <pod>:/results/nemotron-nano-9b-v2.jsonl ../../../results/phase1_phi_kv/
+$K cp <pod>:/results/nemotron-nano-9b-v2.jsonl ../../../results/m1.5-vllm-baseline/phase1_phi_kv/
 
 # 7. Cleanup (frees PVCs, GPU pods).
 $K delete -l prfaas.experiment/phase=1 deploy,svc,job,pvc,cm

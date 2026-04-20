@@ -103,7 +103,7 @@ PROTOCOL=tcp BUFFER_SIZE_MB=8192 \
 MODE=native TARGET_HOST=dc-a.internal:15123 \
   ./prfaas/m1-tcp-bench/scripts/run_matrix.sh real
 
-python3 ./prfaas/m1-tcp-bench/scripts/plot_results.py prfaas/m1-tcp-bench/results/real.csv
+python3 ./prfaas/m1-tcp-bench/scripts/plot_results.py prfaas/results/m1-tcp-bench/real.csv
 ```
 
 ## Status

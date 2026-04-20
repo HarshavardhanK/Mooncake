@@ -36,7 +36,7 @@ case "${PRFAAS_ROLE}" in
   y)
     : "${TARGET_RPC_PORT:?set TARGET_RPC_PORT (printed by the x_gateway run_target.sh)}"
     sudo bash "${M15_DIR}/scripts/wireguard_setup.sh"
-    out_dir="${REPO_ROOT}/prfaas/m1-tcp-bench/results/cross_dc_xy/wg_ablation"
+    out_dir="${REPO_ROOT}/prfaas/results/m1-tcp-bench/cross_dc_xy/wg_ablation"
     mkdir -p "${out_dir}"
     m15_log "Stage 0b (initiator on WG) → ${WG_X_GATEWAY_IP}:${TARGET_RPC_PORT}"
     MODE=native PROTOCOL=tcp BENCH_BIN="${BENCH_BIN}" \

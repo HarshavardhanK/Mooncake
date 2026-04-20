@@ -8,11 +8,11 @@ directory. If you want the *what we measured*, read `PHI_KV_TABLE.md`.
 If you want *what actually happened in the room*, read this.
 
 Companion docs:
-- [`../../PROJECT_LOG.md`](../../PROJECT_LOG.md) §6 — same data,
+- [`../../PROJECT_LOG.md`](../../../docs/00-overview/PROJECT_LOG.md) §6 — same data,
   positioned in the larger project narrative.
-- [`../../INFRA_LOG.md`](../../INFRA_LOG.md) — every infra event
+- [`../../INFRA_LOG.md`](../../../docs/30-operations/INFRA_LOG.md) — every infra event
   (disk pressure, port collisions, RBAC) referenced below.
-- [`../../DECISIONS.md`](../../DECISIONS.md) — ADRs for every
+- [`../../DECISIONS.md`](../../../docs/20-decisions/DECISIONS.md) — ADRs for every
   decision below (mid-run parser fix, env-var rename, Qwen weight
   eviction, etc.).
 
@@ -261,7 +261,7 @@ env and were *also* trying to bind ports during CUDA-graph capture.
 
 **Detection going forward.** A `ss -tlnp` in the SGLang container
 during startup would show *what* is binding the port. Documented in
-[`../../INFRA_LOG.md`](../../INFRA_LOG.md) §2 detection paragraph.
+[`../../INFRA_LOG.md`](../../../docs/30-operations/INFRA_LOG.md) §2 detection paragraph.
 
 ---
 

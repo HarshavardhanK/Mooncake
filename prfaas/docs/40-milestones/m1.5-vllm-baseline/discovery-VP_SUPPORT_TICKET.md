@@ -44,7 +44,7 @@ I'm running a research experiment on Mooncake-based prefill/decode disaggregatio
 **Time sensitivity:** Stage B/C/D plus 3-day repeats need ~1-2 weeks of cluster time. I'd like to have these unblocks within a week if possible.
 
 **Reference:**
-- Discovery report: `prfaas/m1.5-vllm-baseline/discovery/REPORT.md` in
+- Discovery report: `prfaas/docs/40-milestones/m1.5-vllm-baseline/discovery-REPORT.md` in
   https://github.com/HarshavardhanK/Mooncake/tree/feat/prfaas-m1.5-vllm-baseline
 - Per-node JSON inventory: same directory.
 

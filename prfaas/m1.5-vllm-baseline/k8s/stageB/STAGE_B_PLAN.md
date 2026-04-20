@@ -118,7 +118,7 @@ Stage B is **green** when, on `long_context`:
 ## 4. What we expect on bootnet
 
 From Stage 0a (host-side cross-DC bench, captured in
-`prfaas/m1.5-vllm-baseline/results/stage0a/SUMMARY.md`):
+`prfaas/results/m1.5-vllm-baseline/stage0a/SUMMARY.md`):
 
 - **Bootnet RTT (g304 ↔ g307):** 0.084 ms (sub-millisecond LAN).
 - **Bootnet underlay capacity:** 100 Gbps LACP (2× 50 Gbps bonded).

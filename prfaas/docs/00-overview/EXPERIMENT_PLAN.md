@@ -11,7 +11,7 @@
 > measurement that drives Table 6. Stages A–D from v0.3 still stand but become
 > the *empirical* arm of the plan; Phase 1 is the *analytical* input the paper
 > uses to forecast Λ_max(BW, SLO). See
-> [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md) for the full Phase 1 spec.
+> [`PHASE1_PHIKV_PLAN.md`](../10-paper/PHASE1_PHIKV_PLAN.md) for the full Phase 1 spec.
 
 ### v0.3 → v0.4 changelog
 
@@ -28,7 +28,7 @@
 
 v0.1/v0.2 framed the experiment around per-request TTFT on dense models
 (Llama-70B, Qwen3-8B). After re-reading the paper end-to-end (see
-`prfaas/PAPER_REREAD.md`), both choices were wrong:
+`prfaas/docs/10-paper/PAPER_REREAD.md`), both choices were wrong:
 
 1. **Wrong metric.** The paper's headline is *throughput-at-SLO* — "decode DC
    sustains N× more concurrent users at fixed P95 TTFT", not "any single
@@ -53,7 +53,7 @@ of the PrfaaS paper** — that cross-datacenter Prefill-Decode disaggregation
 on **hybrid-attention models** lets a decode DC sustain higher throughput at
 the same SLO than it could alone. It sits one level above the per-milestone
 READMEs in `prfaas/m*/`. The actionable runbook lives in
-[`prfaas/m1.5-vllm-baseline/RUNBOOK.md`](./m1.5-vllm-baseline/RUNBOOK.md).
+[`prfaas/docs/40-milestones/m1.5-vllm-baseline/RUNBOOK.md`](../40-milestones/m1.5-vllm-baseline/RUNBOOK.md).
 
 If you only read one section, read [§5 Stages](#5-stages-and-go-no-go-criteria).
 
@@ -192,7 +192,7 @@ paper's actual claims, restated in our hardware terms.
 | H3 | Adding 10–80 ms RTT inflates *individual* TTFT by ≤1× RTT (one round trip), not by `prefill_time + RTT` | Stage C: TTFT vs RTT at fixed light load | ⏳ |
 | H4 | The Λ_max gain shrinks but does not vanish when the WAN goes from clean (Stage C continental) to noisy (Stage D real public internet) | Stage D vs Stage C continental | ⏳ |
 | H5 | The breakeven is governed by `effective_BW × hybrid_KV_ratio` vs `prefill_throughput`. Below breakeven, Λ_max(PrfaaS) ≤ Λ_max(decode-only). | Cross-stage analysis using Stage 0 numbers | ⏳ |
-| H6 | None of this works for dense-attention models at our bandwidth class. We *don't* run a Llama-70B sweep, we just put the back-of-envelope number in the writeup. | `prfaas/m1.5-vllm-baseline/SIZING.md` | ✅ (analytical only) |
+| H6 | None of this works for dense-attention models at our bandwidth class. We *don't* run a Llama-70B sweep, we just put the back-of-envelope number in the writeup. | `prfaas/docs/40-milestones/m1.5-vllm-baseline/SIZING.md` | ✅ (analytical only) |
 
 H2 is the headline. H5 is what determines whether the headline is meaningful
 or coincidental.
@@ -283,10 +283,10 @@ Substages:
   `iperf3 -P 1` and multi-flow `iperf3 -P 16`.
 
 **Done when:**
-- We have a CSV under `prfaas/m1-tcp-bench/results/cross_dc_xy/` reporting
+- We have a CSV under `prfaas/results/m1-tcp-bench/cross_dc_xy/` reporting
   goodput / P50 latency / retransmits per cell, plus time-of-day variance.
 - We have a one-paragraph "what the wire can do" in
-  `prfaas/m1.5-vllm-baseline/results/stage0/SUMMARY.md`.
+  `prfaas/results/m1.5-vllm-baseline/stage0a/SUMMARY.md`.
 - We can answer: *"At measured median bandwidth B Gbps, what's the largest
   hybrid model that fits the bandwidth budget for `long_context` at our
   target QPS?"* — back-of-envelope math is in `SIZING.md`, plug Stage 0's B
@@ -314,12 +314,12 @@ prove H2.
   HCA fix).
 - Proxy: bundled `mooncake.vllm_v1_proxy_server` (round-robin, **does not
   drive the full v1 PD protocol** — see caveats in
-  `prfaas/m1.5-vllm-baseline/MASTER_PLAN.md`).
+  `prfaas/docs/40-milestones/m1.5-vllm-baseline/MASTER_PLAN.md`).
 - **Active smoke model: `Qwen/Qwen2.5-7B-Instruct`** (dense attention).
   Pivoted from Nemotron-Nano-9B-v2 after a layered failure (see below).
 - A single `curl` to `proxy.default.svc:8000/v1/chat/completions` returns
   `OK` (HTTP 200, content `"OK"`). Evidence:
-  `prfaas/results/stageA/smoke.log` and `kv_transfer_evidence.log`.
+  `prfaas/results/m1.5-vllm-baseline/stageA/smoke.log` and `kv_transfer_evidence.log`.
 
 **Negative finding — hybrid models on MooncakeConnector v0.19.1:**
 
@@ -334,14 +334,14 @@ this stack in two stages:
    → it gets one layer further and dies inside `TpKVTopology.__post_init__`
    on `attn_backend.get_kv_cache_shape()`, which the Mamba2 backend
    raises `NotImplementedError` for. Evidence:
-   `prfaas/results/stageA/nemotron_failure_prefiller.log`,
-   `prfaas/results/stageA/MC_PATCH_NOTE.md`.
+   `prfaas/results/m1.5-vllm-baseline/stageA/nemotron_failure_prefiller.log`,
+   `prfaas/results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md`.
 
 The SupportsHMA patch is preserved (idempotent, no-op for dense models)
 in `10-prefiller.yaml` and `20-decoder.yaml` so swapping back to a
 hybrid model is a one-line ConfigMap edit once upstream support lands.
 The full hybrid-model unblock plan lives in
-`prfaas/PAPER_MODEL_PLAN.md` (paths A/B/C: wait for upstream, SGLang
+`prfaas/docs/10-paper/PAPER_MODEL_PLAN.md` (paths A/B/C: wait for upstream, SGLang
 probe, custom connector).
 
 **Done when (✅ all met for the dense path):**
@@ -359,7 +359,7 @@ probe, custom connector).
 rate `Φkv(l) = Skv(l) / Tprefill(l)` — using the paper's actual primary
 hybrid (`moonshotai/Kimi-Linear-48B-A3B-Instruct`), the paper's actual
 serving stack (SGLang v0.5.9), and the paper's context-length sweep
-(1 K → 128 K). Full spec: [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md).
+(1 K → 128 K). Full spec: [`PHASE1_PHIKV_PLAN.md`](../10-paper/PHASE1_PHIKV_PLAN.md).
 
 **What changes vs Stage A:**
 
@@ -387,7 +387,7 @@ actual dense control, FP8, TP=16), MiMo-V2-Flash 309B (paper's secondary
 hybrid).
 
 **Done when:**
-- `prfaas/results/phase1_phi_kv/{kimi-linear-48b,qwen2.5-72b-instruct,nemotron-nano-9b-v2}.jsonl`
+- `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/{kimi-linear-48b,qwen2.5-72b-instruct,nemotron-nano-9b-v2}.jsonl`
   populated with all 8 context-length cells.
 - `COMPARE_TO_PAPER.md` shows our Kimi-Linear Φkv at 32 K within ±20% of the
   paper's Table 6 value, or documents a specific reason for the gap.
@@ -411,9 +411,9 @@ quantitative diff vs paper Table 6 deferred to Phase 2 prerequisite.
   (3.6× to 4× over). PD-disagg is feasible on hybrids, infeasible on the
   dense control — matches paper §5.1.
 - Full table + per-model JSONL + SGLang server logs:
-  [`results/phase1_phi_kv/`](./results/phase1_phi_kv/), entry-point
-  [`PHI_KV_TABLE.md`](./results/phase1_phi_kv/PHI_KV_TABLE.md) and
-  [`COMPARE_TO_PAPER.md`](./results/phase1_phi_kv/COMPARE_TO_PAPER.md).
+  [`results/phase1_phi_kv/`](../../results/m1.5-vllm-baseline/phase1_phi_kv/), entry-point
+  [`PHI_KV_TABLE.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/PHI_KV_TABLE.md) and
+  [`COMPARE_TO_PAPER.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/COMPARE_TO_PAPER.md).
 
 ### Phase 2 — Analytical Λ_max regenerator (½ day, no GPUs needed)
 
@@ -580,7 +580,7 @@ Every cell of the matrix produces:
   with TTFT P50/P95/P99, TPOT P50, E2EL P50, output throughput, KV transfer
   bytes/time/Gbps. From this we extract Λ_max per `(config, workload)`.
 - Raw vLLM serving JSON, one per cell, under
-  `prfaas/m1.5-vllm-baseline/results/<stage>/<model>/<config>/<workload>/concurrency=N/`.
+  `prfaas/results/m1.5-vllm-baseline/<stage>/<model>/<config>/<workload>/concurrency=N/`.
 - A consolidated CSV per stage with columns:
   `stage, config, model, workload, input_len, output_len, concurrency,
    wan_profile, wall_clock_iso, ttft_p50_ms, ttft_p95_ms, ttft_p99_ms,
@@ -682,7 +682,7 @@ locked-in scope.
   between time-of-day cells?
 - **Q12. SSH access.** What's the SSH path (jumphost? direct?) and the
   username/key the agent should use to drive each cluster? See
-  `prfaas/m1.5-vllm-baseline/PREFLIGHT.md` for the full intake form.
+  `prfaas/docs/40-milestones/m1.5-vllm-baseline/PREFLIGHT.md` for the full intake form.
 
 Once Q6–Q10 and Q12 are answered, the next concrete deliverable is running
 `prfaas/m1.5-vllm-baseline/scripts/preflight_check.sh` against both

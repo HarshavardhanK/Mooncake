@@ -166,15 +166,15 @@ ssh vpsupport@159.26.81.50 \
 After all three configs, run the host-side aggregator on the extracted CSVs:
 
 ```bash
-mkdir -p prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2
-tar xzf stageB_configH_results.tar.gz -C prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
-tar xzf stageB_configN_results.tar.gz -C prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
-tar xzf stageB_configP_results.tar.gz -C prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
+mkdir -p prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2
+tar xzf stageB_configH_results.tar.gz -C prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
+tar xzf stageB_configN_results.tar.gz -C prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
+tar xzf stageB_configP_results.tar.gz -C prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/
 
 python3 prfaas/m1.5-vllm-baseline/scripts/extract_lambda_max.py \
   --stage stageB \
-  --results-dir prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2 \
-  --out prfaas/m1.5-vllm-baseline/results/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/SUMMARY.md
+  --results-dir prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2 \
+  --out prfaas/results/m1.5-vllm-baseline/stageB/nvidia_NVIDIA-Nemotron-Nano-9B-v2/SUMMARY.md
 ```
 
 ---
@@ -243,7 +243,7 @@ main case for hybrid models):
    homogeneous baseline. Larger gaps suggest a per-node anomaly that we
    need to chase before trusting any P-vs-H comparison.
 
-Recorded in `prfaas/m1.5-vllm-baseline/results/stageB/<model>/SUMMARY.md`
+Recorded in `prfaas/results/m1.5-vllm-baseline/stageB/<model>/SUMMARY.md`
 by `extract_lambda_max.py`.
 
 ---

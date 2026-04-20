@@ -5,34 +5,36 @@
 This is the canonical project log. It is intentionally narrative and
 exhaustive. Other docs in this tree split this log up by concern:
 
-- [`README.md`](./README.md) — short status table + entry pointers.
+- [`../../README.md`](../../README.md) — short status table + entry pointers.
 - [`EXPERIMENT_PLAN.md`](./EXPERIMENT_PLAN.md) — the **plan**: stages, hypotheses,
   go/no-go criteria. Read after this log if you want to know *what's next*.
-- [`DECISIONS.md`](./DECISIONS.md) — every meaningful decision as an ADR
-  (Status / Context / Decision / Consequences / Alternatives). Read this if
-  you want to know *why* a choice was made and what alternatives we
+- [`../20-decisions/DECISIONS.md`](../20-decisions/DECISIONS.md) — every meaningful decision
+  as an ADR (Status / Context / Decision / Consequences / Alternatives). Read
+  this if you want to know *why* a choice was made and what alternatives we
   rejected.
-- [`INFRA_LOG.md`](./INFRA_LOG.md) — every infra-level event we hit
-  (disk pressure, port collisions, RBAC, GPU exposure) with diagnosis and
-  resolution. Read this if you're operating the rig.
-- [`PAPER_REREAD.md`](./PAPER_REREAD.md) — receipts for the v0.3 reframing of
-  the experiment (metric and model class).
-- [`PAPER_MODEL_PLAN.md`](./PAPER_MODEL_PLAN.md) — paper-model unblock
-  workstream (status board for which paper models we can/can't run yet).
-- [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md) — methodology spec for the
-  Phase 1 measurement that's the centrepiece of this commit window.
-- [`results/phase1_phi_kv/`](./results/phase1_phi_kv/) — Phase 1 raw data,
-  per-model JSONL, summary table, and run-by-run notes.
-- [`results/stageA/`](./results/stageA/) — Stage A (vLLM single-host smoke)
-  raw evidence and the SupportsHMA / Mamba2 finding.
-- [`m1.5-vllm-baseline/`](./m1.5-vllm-baseline/) — operational tree
-  (K8s manifests, scripts, configs, RUNBOOK).
-- [`m1-tcp-bench/`](../prfaas/m1-tcp-bench/) — wire-characterisation rig
-  (Stage 0 / 0a results live here).
+- [`../30-operations/INFRA_LOG.md`](../30-operations/INFRA_LOG.md) — every infra-level event
+  we hit (disk pressure, port collisions, RBAC, GPU exposure) with diagnosis
+  and resolution. Read this if you're operating the rig.
+- [`../10-paper/PAPER_REREAD.md`](../10-paper/PAPER_REREAD.md) — receipts for the v0.3
+  reframing of the experiment (metric and model class).
+- [`../10-paper/PAPER_MODEL_PLAN.md`](../10-paper/PAPER_MODEL_PLAN.md) — paper-model
+  unblock workstream (status board for which paper models we can/can't run yet).
+- [`../10-paper/PHASE1_PHIKV_PLAN.md`](../10-paper/PHASE1_PHIKV_PLAN.md) — methodology
+  spec for the Phase 1 measurement that's the centrepiece of this commit window.
+- [`../../results/m1.5-vllm-baseline/phase1_phi_kv/`](../../results/m1.5-vllm-baseline/phase1_phi_kv/)
+  — Phase 1 raw data, per-model JSONL, summary table, and run-by-run notes.
+- [`../../results/m1.5-vllm-baseline/stageA/`](../../results/m1.5-vllm-baseline/stageA/)
+  — Stage A (vLLM single-host smoke) raw evidence and the SupportsHMA / Mamba2 finding.
+- [`../40-milestones/m1.5-vllm-baseline/README.md`](../40-milestones/m1.5-vllm-baseline/README.md)
+  — milestone narrative; operational tree (K8s manifests, scripts, configs)
+  lives at `prfaas/m1.5-vllm-baseline/`.
+- [`../40-milestones/m1-tcp-bench/README.md`](../40-milestones/m1-tcp-bench/README.md)
+  — wire-characterisation rig narrative; results live at
+  `prfaas/results/m1-tcp-bench/`.
 
 If you only have ten minutes, read this file's §1 (current state) and §6
 (what we have measured), then jump to
-[`results/phase1_phi_kv/PHI_KV_TABLE.md`](./results/phase1_phi_kv/PHI_KV_TABLE.md).
+[`../../results/m1.5-vllm-baseline/phase1_phi_kv/PHI_KV_TABLE.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/PHI_KV_TABLE.md).
 
 ---
 
@@ -63,7 +65,7 @@ actual hybrid (Kimi-Linear-48B-A3B-Instruct) and the paper's actual engine
 | Stage | What | Status | Headline |
 |---|---|---|---|
 | 0 | Host preflight + cluster topology | done | g304/g307 on IAD1 (X), g126 on DFW1-beta (Y), all on Kubernetes. Y RBAC limits us to the `default` namespace. |
-| 0a | Cross-DC TCP transport bench | done | g126 ↔ g304 over public internet: median goodput **~14.7 Gbps**, RTT **29.75 ms**, with TCP connection pooling on. Full results in `prfaas/m1-tcp-bench/results/`. |
+| 0a | Cross-DC TCP transport bench | done | g126 ↔ g304 over public internet: median goodput **~14.7 Gbps**, RTT **29.75 ms**, with TCP connection pooling on. Full results in `prfaas/results/m1-tcp-bench/`. |
 | A | Single-host PD smoke on g126, vLLM v0.19.1 + MooncakeConnector | done | Qwen2.5-7B-Instruct end-to-end through patched MooncakeConnector + bundled proxy → HTTP 200, content `OK`. **Negative finding** on Nemotron-Nano-9B-v2: `TpKVTopology.get_kv_cache_shape` raises `NotImplementedError` on the Mamba2 backend; vLLM v0.19.1's MooncakeConnector cannot serve hybrid models, period. The `SupportsHMA` shim is necessary but not sufficient. |
 | Mooncake upstream PR | `feat/supports-hma-shim` → kvcache-ai/Mooncake#1931 | open, awaiting review | The minimal upstream-clean change that makes vLLM accept MooncakeConnector for HMA-enabled models. Decoupled from the rest of this work. |
 | **Phase 1** | **Φkv replication on the paper's actual primary hybrid + adjacent hybrid + dense control, on g126 with SGLang v0.5.9** | **done 2026-04-20** | **Kimi-Linear-48B Φkv plateau ≈ 5.6–5.8 Gbps for `l ∈ [16 K, 65 K]`; Nemotron-Nano-9B Φkv plateau ≈ 6.5 Gbps; Qwen2.5-72B Φkv plateau ≈ 54–56 Gbps. Dense / hybrid ratio at 16 K = 9.3× (Kimi) and 8.4× (Nemotron) — replicates the paper's qualitative claim on our hardware. Both hybrids fit our 14.7 Gbps wire at every measured `l`; the dense control does not at any.** |
@@ -109,7 +111,7 @@ results. There is no separate fast tier. This is why the
 disk pressure, and why we ended up evicting cert-manager pods en masse
 the first time we tried to fit Kimi-Linear-48B + Qwen2.5-72B + Nemotron
 weights on disk simultaneously (~245 GB of weights versus ~459 GB total
-disk minus ~85 GB system). See [`INFRA_LOG.md`](./INFRA_LOG.md) §1.
+disk minus ~85 GB system). See [`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) §1.
 
 **Network exposure for cross-DC PD-disagg.** Mooncake's TCP transport has
 no built-in TLS or auth. We will use firewall whitelist + interface bind
@@ -123,7 +125,7 @@ only `pod-creator`-class verbs. We cannot delete cert-manager pods, can't
 create namespaces, can't taint nodes. Operations that require any of
 those have to be requested through the cluster owner. This is why some
 infra-cleanup operations during Phase 1 required workarounds (see
-[`INFRA_LOG.md`](./INFRA_LOG.md) §3).
+[`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) §3).
 
 ## 3. Software stack
 
@@ -159,7 +161,7 @@ and connection-pool depth, repeated at three wall-clock times. Headline:
   evening America)
 - Connection-pool depth gain: ~1.4× from depth=8 vs depth=1 single-flow
 
-Full dump under `prfaas/m1-tcp-bench/results/`. The 14.7 Gbps number is
+Full dump under `prfaas/results/m1-tcp-bench/`. The 14.7 Gbps number is
 the constant we feed into every analytical calculation — `SIZING.md`,
 later Phase 2 — so getting it pinned down before any model work was the
 right sequencing.
@@ -175,7 +177,7 @@ with our `SupportsHMA` shim applied in-place via an init container,
 `mooncake.vllm_v1_proxy_server` in front, on `Qwen/Qwen2.5-7B-Instruct`.
 
 **Result:** smoke `POST /v1/chat/completions` → HTTP 200, content `OK`.
-[`results/stageA/SUMMARY.md`](./results/stageA/SUMMARY.md) has the full
+[`results/stageA/SUMMARY.md`](../../results/m1.5-vllm-baseline/stageA/SUMMARY.md) has the full
 report. The connector is wired all the way through, Mooncake Transfer
 Engines on both pods discover each other and listen on their RPC P2P
 ports, and a request completes through the proxy.
@@ -203,13 +205,13 @@ configuration one — the KV transfer layer assumes every layer carries a
 classical (block, kv_heads, head_dim) cube. Mamba2 / KDA / linear-attn
 layers carry a fixed-size SSM state slab instead, with different shape
 semantics. Full transcript:
-[`results/stageA/nemotron_failure_prefiller.log`](./results/stageA/nemotron_failure_prefiller.log).
+[`results/stageA/nemotron_failure_prefiller.log`](../../results/m1.5-vllm-baseline/stageA/nemotron_failure_prefiller.log).
 Decision write-up:
-[`results/stageA/MC_PATCH_NOTE.md`](./results/stageA/MC_PATCH_NOTE.md).
+[`results/stageA/MC_PATCH_NOTE.md`](../../results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md).
 
 This unblock has three theoretical paths (A wait upstream, B switch to
 SGLang, C write a hybrid-aware MooncakeConnector). We picked Path B —
-see [`DECISIONS.md`](./DECISIONS.md) ADR-003.
+see [`DECISIONS.md`](../20-decisions/DECISIONS.md) ADR-003.
 
 ### 4.3 SupportsHMA upstream PR (parallel workstream)
 
@@ -229,7 +231,7 @@ principal-engineer-style review comments, awaiting maintainer.
 
 After the user's "are we simulating what the paper said? i don't want us
 to deviate" challenge we re-read the paper end-to-end. The summary
-[`PAPER_REREAD.md`](./PAPER_REREAD.md) captures the gap; the short version:
+[`PAPER_REREAD.md`](../10-paper/PAPER_REREAD.md) captures the gap; the short version:
 
 - The paper's headline numbers are not from an end-to-end deployment.
   They are from an **analytical model** (paper Eq 3-8) whose only
@@ -261,16 +263,16 @@ Plan changelog and rationale:
 
 ### 4.5 Phase 1 — Φkv replication (this commit window)
 
-**Plan:** [`PHASE1_PHIKV_PLAN.md`](./PHASE1_PHIKV_PLAN.md). Methodology in
+**Plan:** [`PHASE1_PHIKV_PLAN.md`](../10-paper/PHASE1_PHIKV_PLAN.md). Methodology in
 §5 below; raw data in §6; per-run notes in
-[`results/phase1_phi_kv/RUN_NOTES.md`](./results/phase1_phi_kv/RUN_NOTES.md).
+[`results/phase1_phi_kv/RUN_NOTES.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/RUN_NOTES.md).
 
 **Outcome (one screen):**
 
 - Three models profiled on g126 (single replica, single concurrency,
   paper-faithful flags) across 1 K → 131 K context lengths.
 - All raw data and SGLang server logs captured under
-  `prfaas/results/phase1_phi_kv/`.
+  `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/`.
 - The hybrid-vs-dense Φkv ratio (which is the paper's qualitative
   feasibility claim) replicates: **9.3× dense vs Kimi at 16 K, 8.4×
   dense vs Nemotron at 16 K** — both above the 5× target the
@@ -283,8 +285,8 @@ The headline ratio survives a deliberate parser bug we caught and fixed
 mid-run (an early version of `phi_kv_probe.py` mis-counted Kimi's
 attention layers because the released Kimi config nests the layer-kind
 table inside `linear_attn_config` rather than at the top level — see
-ADR-007 in [`DECISIONS.md`](./DECISIONS.md) and the postmortem in
-[`results/phase1_phi_kv/RUN_NOTES.md`](./results/phase1_phi_kv/RUN_NOTES.md)).
+ADR-007 in [`DECISIONS.md`](../20-decisions/DECISIONS.md) and the postmortem in
+[`results/phase1_phi_kv/RUN_NOTES.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/RUN_NOTES.md)).
 
 ## 5. Methodology — how each measurement was taken
 
@@ -295,7 +297,7 @@ swept slice size {64 KiB, 256 KiB, 1 MiB, 4 MiB, 16 MiB}, threads
 {1, 4, 8, 16}, conn-pool {1, 4, 8}. Repeated at three time-of-day
 windows (morning / afternoon / evening America). Reported median across
 runs, plus min/max. Full schema and CSVs:
-`prfaas/m1-tcp-bench/results/`.
+`prfaas/results/m1-tcp-bench/`.
 
 What we report from this set: **single-flow median goodput = 14.7 Gbps**,
 **RTT = 29.75 ms**, **conn-pool=8 vs conn-pool=1 gain ≈ 1.4×**. These
@@ -324,7 +326,7 @@ Skv(l)        = bytes of KV cache produced by prefilling `l` tokens,
 | SWA with window `W` | same as GQA but capped at `W` per layer once `l ≥ W` |
 
 `Skv(l) = sum over layers of (per-layer-bytes-per-token × min(l, layer_cap))`.
-Implementation: [`m1.5-vllm-baseline/scripts/phi_kv_probe.py`](./m1.5-vllm-baseline/scripts/phi_kv_probe.py).
+Implementation: [`m1.5-vllm-baseline/scripts/phi_kv_probe.py`](../../m1.5-vllm-baseline/scripts/phi_kv_probe.py).
 
 **Probe protocol per (model, l) cell.** 5 warmup requests (drop), then
 20 timed requests. Report P25 / P50 / P75 of Tprefill in milliseconds,
@@ -378,7 +380,7 @@ JSONL is still flushed before exit, so partial data is recoverable).
 - **Max running requests:** 1. We only ever have one in-flight prefill at
   a time during the timed loop.
 - **Inductor compile threads:** `TORCHINDUCTOR_COMPILE_THREADS=1`. See
-  [`INFRA_LOG.md`](./INFRA_LOG.md) §2 for why — short version: PyTorch
+  [`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) §2 for why — short version: PyTorch
   inductor's compile-worker subprocesses inherit `SGLANG_PORT` and grab
   the user-facing API port if we let them.
 
@@ -396,7 +398,7 @@ JSONL is still flushed before exit, so partial data is recoverable).
 ### 6.2 Φkv (Phase 1) — full per-cell results
 
 All three models, single-replica, single-concurrency, on g126 with SGLang
-v0.5.9-cu129-amd64. Raw JSONL: `prfaas/results/phase1_phi_kv/<model_short>.jsonl`.
+v0.5.9-cu129-amd64. Raw JSONL: `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/<model_short>.jsonl`.
 Server logs: `*.sglang.log` (gitignored due to size; reproduce via the
 manifests in `prfaas/m1.5-vllm-baseline/k8s/phase1/`).
 
@@ -569,7 +571,7 @@ cd prfaas/m1-tcp-bench
 ```bash
 cd prfaas/m1.5-vllm-baseline/k8s/stageA
 KUBECONFIG=/path/to/aln1-beta-harsha-g126-beta.kubeconfig.yaml \
-  ./apply.sh   # see prfaas/results/stageA/SUMMARY.md §Reproduction for the
+  ./apply.sh   # see prfaas/results/m1.5-vllm-baseline/stageA/SUMMARY.md §Reproduction for the
                # full sequence; it's idempotent.
 ```
 
@@ -625,7 +627,7 @@ guide, including the disk-pressure mitigations.
 
 | # | Question | Why it matters | Deferred to |
 |---|---|---|---|
-| Q1 | What does the paper's Table 6 actually report for Kimi-Linear-48B Φkv per `l`? | Direct quantitative diff against our numbers — completes the Phase 1 acceptance criterion. | Phase 2 prerequisite (typed up as `prfaas/results/phase1_phi_kv/PAPER_PHI_KV.md`). |
+| Q1 | What does the paper's Table 6 actually report for Kimi-Linear-48B Φkv per `l`? | Direct quantitative diff against our numbers — completes the Phase 1 acceptance criterion. | Phase 2 prerequisite (typed up as `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/PAPER_PHI_KV.md`). |
 | Q2 | Does YaRN-extended Qwen2.5-72B preserve Φkv shape? Tprefill grows quadratically with context, KV bytes linearly, so Φkv should *rise* — that's a Phase 2.5 cell. | Lets us extend the dense control beyond 32 K and see whether dense Φkv keeps growing or plateaus. | Phase 2.5 (optional, after Phase 2). |
 | Q3 | Are the X-cluster nodes (g304, g307) GPU-exposed in K8s? | Phase 3 cross-DC and the 229 B / 309 B paper class both need this. | Re-check with infra; tracked as todo `x_cluster_check`. |
 | Q4 | Does SGLang's Mooncake binding actually carry KV across pods at our wire's RTT and BW? | Phase 3 is built on this. | Phase 3 single-host first (g126 split TP=4+TP=4) before going cross-DC. |
@@ -635,15 +637,15 @@ guide, including the disk-pressure mitigations.
 ## 9. What a new contributor should read, in order
 
 1. This file (you are here).
-2. [`PAPER_REREAD.md`](./PAPER_REREAD.md) — what the paper actually claims.
+2. [`PAPER_REREAD.md`](../10-paper/PAPER_REREAD.md) — what the paper actually claims.
 3. [`EXPERIMENT_PLAN.md`](./EXPERIMENT_PLAN.md) §3 (hypotheses) and §5
    (stages).
-4. [`results/phase1_phi_kv/PHI_KV_TABLE.md`](./results/phase1_phi_kv/PHI_KV_TABLE.md)
+4. [`results/phase1_phi_kv/PHI_KV_TABLE.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/PHI_KV_TABLE.md)
    — the data.
-5. [`DECISIONS.md`](./DECISIONS.md) — why we chose what we chose.
-6. [`INFRA_LOG.md`](./INFRA_LOG.md) — what bit us and how we got around
+5. [`DECISIONS.md`](../20-decisions/DECISIONS.md) — why we chose what we chose.
+6. [`INFRA_LOG.md`](../30-operations/INFRA_LOG.md) — what bit us and how we got around
    it (only if you're operating the rig).
-7. [`m1.5-vllm-baseline/k8s/phase1/README.md`](./m1.5-vllm-baseline/k8s/phase1/README.md)
+7. [`m1.5-vllm-baseline/k8s/phase1/README.md`](../../m1.5-vllm-baseline/k8s/phase1/README.md)
    — the operator guide for the most recent active workstream.
 
 ## 10. Open / "watch this space" board

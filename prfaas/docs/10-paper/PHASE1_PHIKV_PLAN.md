@@ -1,10 +1,10 @@
 # Phase 1 — Φkv replication (paper-faithful)
 
 **Status:** plan v0.1 — **executed 2026-04-20 on g126 (cluster Y)**.
-Results: [`results/phase1_phi_kv/`](./results/phase1_phi_kv/) — entry
-point [`PHI_KV_TABLE.md`](./results/phase1_phi_kv/PHI_KV_TABLE.md).
+Results: [`results/phase1_phi_kv/`](../../results/m1.5-vllm-baseline/phase1_phi_kv/) — entry
+point [`PHI_KV_TABLE.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/PHI_KV_TABLE.md).
 Headline outcome captured in
-[`results/phase1_phi_kv/COMPARE_TO_PAPER.md`](./results/phase1_phi_kv/COMPARE_TO_PAPER.md).
+[`results/phase1_phi_kv/COMPARE_TO_PAPER.md`](../../results/m1.5-vllm-baseline/phase1_phi_kv/COMPARE_TO_PAPER.md).
 **Why this exists:** the PrfaaS paper's headline numbers come out of an analytical
 throughput model (Eq 3-8) whose only model-dependent input is **Φkv(l)** —
 the rate at which a prefill replica produces KV cache, in bytes per second,
@@ -178,7 +178,7 @@ length is exactly `l` regardless of the tokenizer's vocabulary.
 After Phase 1 completes:
 
 ```
-prfaas/results/phase1_phi_kv/
+prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/
 ├── kimi-linear-48b.jsonl            # H1: 8 cells (one per context length)
 ├── nemotron-nano-9b-v2.jsonl        # H2: 8 cells
 ├── qwen2.5-72b-instruct.jsonl       # D1: 8 cells
@@ -244,5 +244,5 @@ Phase 1 is "done" when:
       32 K. *Replaced with the analogous 16 K row (Qwen2.5-72B caps at
       32 K stock); ratio is **9.3× dense vs Kimi**, **8.4× dense vs
       Nemotron**, both well above 5×.*
-- [x] All numbers are committed under `prfaas/results/phase1_phi_kv/` and
+- [x] All numbers are committed under `prfaas/results/m1.5-vllm-baseline/phase1_phi_kv/` and
       cited from `EXPERIMENT_PLAN.md` v0.4. *Done in this commit.*
