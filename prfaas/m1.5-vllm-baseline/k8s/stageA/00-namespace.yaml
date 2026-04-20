@@ -13,8 +13,23 @@ metadata:
     prfaas.experiment/stage: "A"
     app.kubernetes.io/part-of: prfaas
 data:
-  PRIMARY_MODEL: "nvidia/NVIDIA-Nemotron-Nano-9B-v2"
-  MODEL_LOCAL_DIR: "/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2"
+  # ---- Active smoke model (dense attention) ----
+  # Pivoted from Nemotron-Nano-9B-v2 after empirically confirming that
+  # vLLM v0.19.1's MooncakeConnector cannot serve hybrid Mamba2+attention
+  # models even with the SupportsHMA shim applied — TpKVTopology calls
+  # attn_backend.get_kv_cache_shape() on every layer, and the Mamba2 backend
+  # raises NotImplementedError. Evidence:
+  #   prfaas/results/stageA/nemotron_failure_prefiller.log
+  # See prfaas/results/stageA/MC_PATCH_NOTE.md and SUMMARY.md for the full
+  # write-up. Hybrid-model support is a paper-relevant follow-up tracked in
+  # prfaas/PAPER_MODEL_PLAN.md.
+  PRIMARY_MODEL: "Qwen/Qwen2.5-7B-Instruct"
+  MODEL_LOCAL_DIR: "/models/Qwen_Qwen2.5-7B-Instruct"
+  PRIMARY_MODEL_SHORT: "qwen2.5-7b-instruct"
+  # ---- Inert evidence (kept on PVC for re-running the negative finding) ----
+  HYBRID_MODEL_REPO: "nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+  HYBRID_MODEL_LOCAL_DIR: "/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2"
+  # ---- Serving knobs ----
   TENSOR_PARALLEL_SIZE: "4"
   PREFILLER_API_PORT: "8010"
   DECODER_API_PORT: "8020"

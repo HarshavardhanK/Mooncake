@@ -16,15 +16,16 @@ spec:
       containers:
         - name: curl
           image: curlimages/curl:8.10.1
+          envFrom:
+            - configMapRef:
+                name: prfaas-stagea-env
           command: ["sh", "-c"]
           args:
             - |
               set -eu
-              echo "[smoke] hitting proxy..."
-              body='{"model":"nemotron-nano-9b-v2",
-                     "messages":[{"role":"user","content":"Say the single word: OK"}],
-                     "max_tokens":4,
-                     "temperature":0}'
+              MODEL="${PRIMARY_MODEL_SHORT:-qwen2.5-7b-instruct}"
+              echo "[smoke] model=$MODEL  hitting proxy..."
+              body=$(printf '{"model":"%s","messages":[{"role":"user","content":"Say the single word: OK"}],"max_tokens":4,"temperature":0}' "$MODEL")
               resp=$(curl -sS -w '\n__HTTP__%{http_code}' \
                 http://proxy.default.svc.cluster.local:8000/v1/chat/completions \
                 -H 'Content-Type: application/json' \

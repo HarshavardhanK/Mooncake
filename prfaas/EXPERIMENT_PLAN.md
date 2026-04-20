@@ -261,25 +261,63 @@ Substages:
 If the answer is **Qwen3-Next-80B-A3B doesn't fit**, we drop to
 `Nemotron-Nano-9B-v2` for Stage B onward (see SIZING.md for the threshold).
 
-### Stage A — Single-machine 1P1D smoke (½ day, on cluster Y)
+### Stage A — Single-machine 1P1D smoke (½ day, on cluster Y)  — **DONE (Qwen2.5-7B), hybrid blocked**
 
 **Goal:** prove the Mooncake+vLLM integration end-to-end on one box. No
 network, no WAN, no tunnel. Validates the wiring; does *not* attempt to
 prove H2.
 
-- 1 node, 2 vLLM instances on Y:
-  `CUDA_VISIBLE_DEVICES=0,1,2,3` for prefill (TP=4), `4,5,6,7` for decode
-  (TP=4).
-- `mooncake_master --port 50001`.
-- `mooncake.json` with `"protocol": "tcp"`, `local_hostname=127.0.0.1`.
-- Proxy (`disagg_proxy_demo.py`) on the same box.
-- Model: **`nvidia/Nemotron-Nano-9B-v2`** (TP=4 fits comfortably).
-- A single `curl` to `:8000/v1/chat/completions` returns text. Plus one
-  `benchmark_serving.py` run at concurrency 16 to confirm KV transfer is
-  exercised.
+**Realised setup (K8s, not host-side):**
 
-**Done when:** smoke curl succeeds, KV transfer logged in both vLLM
-processes, `benchmark_serving.py` completes one cell without errors.
+- 1 node (`g126`, H100×8) on cluster Y, all in the `default` namespace.
+- 2 vLLM Deployments backed by `vllm/vllm-openai:v0.19.1`:
+  - `prefiller` — `CUDA_VISIBLE_DEVICES=0,1,2,3`, TP=4, `kv_role=kv_producer`,
+    OpenAI port 8010, Mooncake bootstrap port 8998.
+  - `decoder`   — `CUDA_VISIBLE_DEVICES=4,5,6,7`, TP=4, `kv_role=kv_consumer`,
+    OpenAI port 8020.
+- `mooncake.json` with `"protocol": "tcp"`, `local_hostname=127.0.0.1` (RDMA
+  not negotiated — `Found 0 HCAs` inside the container, see Stage B for the
+  HCA fix).
+- Proxy: bundled `mooncake.vllm_v1_proxy_server` (round-robin, **does not
+  drive the full v1 PD protocol** — see caveats in
+  `prfaas/m1.5-vllm-baseline/MASTER_PLAN.md`).
+- **Active smoke model: `Qwen/Qwen2.5-7B-Instruct`** (dense attention).
+  Pivoted from Nemotron-Nano-9B-v2 after a layered failure (see below).
+- A single `curl` to `proxy.default.svc:8000/v1/chat/completions` returns
+  `OK` (HTTP 200, content `"OK"`). Evidence:
+  `prfaas/results/stageA/smoke.log` and `kv_transfer_evidence.log`.
+
+**Negative finding — hybrid models on MooncakeConnector v0.19.1:**
+
+Nemotron-Nano-9B-v2 is a **hybrid Mamba2 + attention** model and fails on
+this stack in two stages:
+
+1. *Without* a SupportsHMA shim → vLLM disables the Hybrid KV cache
+   manager whenever `--kv-transfer-config` is set, then crashes with
+   `ValueError: Hybrid KV cache manager is disabled but failed to convert
+   the KV cache specs to one unified type`.
+2. *With* an in-place `SupportsHMA` patch + `--no-disable-hybrid-kv-cache-manager`
+   → it gets one layer further and dies inside `TpKVTopology.__post_init__`
+   on `attn_backend.get_kv_cache_shape()`, which the Mamba2 backend
+   raises `NotImplementedError` for. Evidence:
+   `prfaas/results/stageA/nemotron_failure_prefiller.log`,
+   `prfaas/results/stageA/MC_PATCH_NOTE.md`.
+
+The SupportsHMA patch is preserved (idempotent, no-op for dense models)
+in `10-prefiller.yaml` and `20-decoder.yaml` so swapping back to a
+hybrid model is a one-line ConfigMap edit once upstream support lands.
+The full hybrid-model unblock plan lives in
+`prfaas/PAPER_MODEL_PLAN.md` (paths A/B/C: wait for upstream, SGLang
+probe, custom connector).
+
+**Done when (✅ all met for the dense path):**
+- Smoke curl succeeds (`http=200`, content `"OK"`).
+- Both vLLM processes log MooncakeConnector init, prefiller publishes
+  bootstrap on 8998, decoder connects.
+- Prefiller and decoder Deployments report `Available=True` and
+  `1/1 Ready` for ≥ 5 min.
+- Negative finding for the hybrid path (Nemotron) is captured with
+  full stack traces and the proposed three-path unblock.
 
 ### Stage B — All-on-X disagg over IB (1 day)
 

@@ -1,0 +1,75 @@
+# One-shot Job that downloads the active smoke model (Qwen2.5-7B-Instruct,
+# dense attention, ~15 GiB BF16) to the same PVC as the Nemotron staging
+# job. Designed to coexist with 02-model-staging-job.yaml — both finish into
+# different subdirectories under /models on the local-path PV.
+#
+# Why a separate job?
+#   We pivoted to a dense model after empirically confirming Mamba2 KV
+#   transfer is unsupported in vLLM 0.19.1's MooncakeConnector
+#   (see prfaas/results/stageA/MC_PATCH_NOTE.md). We keep both jobs so
+#   the negative finding is reproducible from a clean PVC, and the
+#   green smoke is reproducible from a clean PVC.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-staging-qwen
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: model-staging-qwen
+        prfaas.experiment/stage: "A"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: hf-downloader
+          image: python:3.12-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-stagea-env
+          env:
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[stage] installing huggingface_hub + hf-transfer"
+              pip install --no-cache-dir --quiet 'huggingface_hub[cli,hf_transfer]==0.27.*'
+              echo "[stage] target dir: ${MODEL_LOCAL_DIR}"
+              mkdir -p "${MODEL_LOCAL_DIR}"
+              if [[ -f "${MODEL_LOCAL_DIR}/config.json" ]] && \
+                 ls "${MODEL_LOCAL_DIR}"/*.safetensors >/dev/null 2>&1; then
+                echo "[stage] model already present, skipping download"
+                du -sh "${MODEL_LOCAL_DIR}"
+                exit 0
+              fi
+              echo "[stage] downloading ${PRIMARY_MODEL} (dense attention smoke model)"
+              huggingface-cli download "${PRIMARY_MODEL}" \
+                --local-dir "${MODEL_LOCAL_DIR}" \
+                --max-workers 8
+              echo "[stage] done"
+              du -sh "${MODEL_LOCAL_DIR}"
+              ls "${MODEL_LOCAL_DIR}"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights

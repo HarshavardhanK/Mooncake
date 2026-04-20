@@ -5,10 +5,13 @@
 # the kv_transfer_params so the decoder knows which prefiller to fetch
 # from).
 #
-# Same SupportsHMA in-place patch as 10-prefiller.yaml — see comment header
-# there and prfaas/m1.5-vllm-baseline/results/stageA/MC_PATCH_NOTE.md for
-# why we patch instead of bumping vLLM (v0.19.1 is the latest release;
-# upstream FA+Mamba2 NIXL support is RFC-only at PR #36687).
+# Active smoke model: Qwen2.5-7B-Instruct (dense). Same SupportsHMA in-place
+# patch as 10-prefiller.yaml — preserved as a no-op for dense models so a
+# future hybrid swap requires only a ConfigMap change.
+# Negative finding (Nemotron-Nano-9B-v2 + Mamba2):
+#   prfaas/results/stageA/{MC_PATCH_NOTE.md, nemotron_failure_prefiller.log,
+#   SUMMARY.md}
+# Hybrid follow-up: prfaas/PAPER_MODEL_PLAN.md.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -163,7 +166,7 @@ spec:
               echo "[mc-patch] done"
 
               exec vllm serve "${MODEL_LOCAL_DIR}" \
-                --served-model-name nemotron-nano-9b-v2 \
+                --served-model-name "${PRIMARY_MODEL_SHORT}" \
                 --host 0.0.0.0 \
                 --port "${DECODER_API_PORT}" \
                 --tensor-parallel-size "${TENSOR_PARALLEL_SIZE}" \

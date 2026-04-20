@@ -7,6 +7,44 @@ This is the live operational plan. Every step has a verifier and a known
 output artifact. No step proceeds until the previous step's verifier is
 green.
 
+## Live status (2026-04-20)
+
+| Phase | What it is | State |
+| --- | --- | --- |
+| 0 — Discovery | per-host JSON reports | done |
+| 1 — Cross-DC TCP baseline | iperf-style probe | done |
+| 2 — Provisioning | (replaced by K8s — no host installs) | superseded |
+| 3 — Stage 0a wire characterization (window 1) | `transfer_engine_lat_bench` g126↔g304 | done — 14.7 Gbps median, 29.75 ms RTT |
+| 3-bis — Stage 0a windows 2 + 3 | peak-US + EU-business repeats | not started |
+| 4 — Stage A (single-host PD smoke on g126) | K8s, vLLM v0.19.1 + patched MooncakeConnector + bundled proxy | **GREEN on Qwen2.5-7B-Instruct** (HTTP 200, content `OK`); negative finding on Nemotron hybrid (see below) |
+| 5 — Stage B (internal-X PD-disagg sweep, g304↔g307) | K8s | manifests written, queued for `kubectl apply` |
+| 6 — Stage C (`tc netem` profiles on Stage B setup) | K8s + node-level `tc` | not started |
+| 7 — Stage D (real cross-DC PD-disagg, X→Y) | K8s, hostNetwork or NodePort, firewall on g304 | manifests written, queued for firewall + `kubectl apply` |
+
+### Top facts
+
+1. **Deployment surface is Kubernetes**, not direct host installs. The
+   `scripts/` tree is preserved for reference (e.g. `transfer_engine_bench`
+   wire benchmarks under `m1-tcp-bench/`), but Stages A/B/D are operated
+   exclusively from `prfaas/m1.5-vllm-baseline/k8s/`.
+2. **Smoke model is Qwen2.5-7B-Instruct (dense)**, not the originally
+   planned Nemotron-Nano-9B-v2. Reason: vLLM v0.19.1's MooncakeConnector
+   structurally cannot serve Mamba2+attention hybrids — it calls
+   `attn_backend.get_kv_cache_shape()` on every layer, the Mamba2 backend
+   raises `NotImplementedError`, and the SupportsHMA gate flip alone
+   doesn't help. Captured as the first paper-relevant finding in
+   [`../results/stageA/MC_PATCH_NOTE.md`](../results/stageA/MC_PATCH_NOTE.md).
+3. **Hybrid models live in a separate workstream now**, tracked in
+   [`../PAPER_MODEL_PLAN.md`](../PAPER_MODEL_PLAN.md). Stages A→B→C→D run
+   the wire baseline on dense in parallel.
+4. **The bundled `mooncake.vllm_v1_proxy_server` does not drive the full
+   v1 PD protocol** (no `transfer_id` field). Stage A smoke completes
+   end-to-end at the OpenAI API layer, but the decoder may be
+   re-prefilling locally to satisfy the request. Stages B/D will swap in
+   the upstream `vllm/examples/online_serving/disaggregated_serving/`
+   reference proxy that constructs proper `transfer_id` /
+   `do_remote_prefill` / `do_remote_decode` / `remote_*`.
+
 ## Cluster inventory (provided by operator)
 
 | Role tag        | Hostname | Public IP        | SSH                          | Cluster | GPUs (declared) |
@@ -94,12 +132,43 @@ firewall question to the operator.
   before the 14.7 Gbps median is "the median" rather than "Sunday night".
   Tracked as Stage 0a-bis.
 
-### Phase 4 — Stage A: localhost smoke on Y (~1–2 h)
-Validates Mooncake master + vLLM kv-transfer + proxy on a single box,
-1P1D over loopback, with the smoke model. No cross-DC traffic.
+### Phase 4 — Stage A: localhost smoke on Y (~1–2 h) — **DONE 2026-04-20**
+Validates Mooncake-connector + vLLM kv-transfer plumbing + proxy on a
+single box, 1P1D over the K8s pod network, with the smoke model. No
+cross-DC traffic.
 
-**Verifier:** smoke curl returns sensible chat output + bench cell completes
-+ both vLLM logs show KV transfer events.
+**Realized as:** Kubernetes Deployment pair on g126 (Y cluster, default
+namespace per RBAC), in `prfaas/m1.5-vllm-baseline/k8s/stageA/`:
+prefiller (TP=4, kv_producer) + decoder (TP=4, kv_consumer) + proxy
+(`mooncake.vllm_v1_proxy_server`). Both serving pods run
+`vllm/vllm-openai:v0.19.1` with an initContainer that pip-installs
+`mooncake-transfer-engine==0.3.10.post1` and an in-place patch script
+that subclasses `SupportsHMA` onto the bundled `MooncakeConnector` (see
+header of `10-prefiller.yaml` + [`../results/stageA/MC_PATCH_NOTE.md`](../results/stageA/MC_PATCH_NOTE.md)).
+
+**Verifier (achieved):**
+- Smoke job: `HTTP 200`, body `…"content":"OK"…`, model echoes back as
+  `qwen2.5-7b-instruct`.
+- Mooncake transfer engines bind on the kv-transfer ports (one per worker
+  rank, 8 total: prefiller `172.28.0.100:1522[09…]`, decoder
+  `172.28.0.227:150[68…]`).
+- Both engines report `Topology discovery complete. Found 0 HCAs.` —
+  expected for pod-network smoke; **must be revisited for Stage D**
+  (cross-DC) where we want either RDMA via SR-IOV/host-network or TCP
+  fallback explicitly enabled.
+- `MooncakeConnector` `SupportsHMA` shim took on both pods.
+
+**Caveat (carried into Stage B):** the bundled
+`mooncake.vllm_v1_proxy_server` does not populate `transfer_id` in
+`kv_transfer_params`, so the decoder may have re-prefilled the prompt
+locally rather than pulling KV from the prefiller. This is sufficient to
+prove plumbing but not throughput. The Stage B/D rollouts replace the
+proxy with the upstream reference impl from
+`vllm/examples/online_serving/disaggregated_serving/`.
+
+**Negative finding (kept as primary evidence):** Nemotron-Nano-9B-v2
+crashes deeper than `SupportsHMA`. Hybrid follow-up tracked in
+[`../PAPER_MODEL_PLAN.md`](../PAPER_MODEL_PLAN.md).
 
 ### Phase 5 — Stage B: IB-as-TCP three-config sweep (~6 h)
 Three runs on cluster X (g304 + g307):

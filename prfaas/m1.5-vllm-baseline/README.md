@@ -1,13 +1,32 @@
-# M1.5 — Cross-DC vLLM serving baseline (hybrid models, Λ_max-at-SLO)
+# M1.5 — Cross-DC vLLM serving baseline (Λ_max-at-SLO)
 
 This is the milestone that **proves or refutes** the central PrfaaS claim on
 real GPUs and real wire. It picks up where M1 (synthetic transport bench)
-left off and stops short of M2 (smart router): we use a stock round-robin
-proxy, the existing Mooncake `MooncakeStoreConnector` (or `MooncakeConnector`
-on vLLM v1, decided in Stage A), and pin everything else.
+left off and stops short of M2 (smart router): we use the bundled vLLM v1
+`MooncakeConnector` (with our in-place `SupportsHMA` patch), a round-robin
+proxy from `mooncake-transfer-engine`, and pin everything else.
 
 > **Read first:** [`prfaas/EXPERIMENT_PLAN.md`](../EXPERIMENT_PLAN.md). This
 > README is the *operational* layer; the plan is the *why*.
+
+> **Pivot to Kubernetes (2026-04-20):** the original RUNBOOK targeted
+> direct host installs. After the user requested a K8s-only path, all
+> Stage A/B/D execution moved into [`k8s/`](./k8s/) with one subdirectory
+> per stage. The host-script tree under `scripts/` is preserved for
+> reference (e.g. `transfer_engine_bench` Stage 0a still drives the
+> wire), but is no longer the active deployment surface for the vLLM
+> serving stages.
+
+> **Smoke-model pivot (2026-04-20):** Stage A intended to use
+> Nemotron-Nano-9B-v2 (Mamba2+attn hybrid, the paper's claimed sweet
+> spot). We empirically confirmed that vLLM v0.19.1's MooncakeConnector
+> cannot serve hybrid models even with `SupportsHMA` patched —
+> `TpKVTopology` calls `get_kv_cache_shape()` on every layer's attention
+> backend and the Mamba2 backend raises `NotImplementedError`. Stage A
+> now runs on **Qwen2.5-7B-Instruct** (dense, gateless, ~15 GiB, TP=4)
+> for the wire baseline. Hybrid follow-up tracked in
+> [`../PAPER_MODEL_PLAN.md`](../PAPER_MODEL_PLAN.md). Full evidence in
+> [`../results/stageA/`](../results/stageA/).
 
 ## Reading order
 
@@ -66,13 +85,26 @@ prfaas/m1.5-vllm-baseline/
 
 | Stage | Goal | Status |
 |---|---|---|
-| 0a   | Real WAN transport baseline (g126 ↔ g304, public Internet) | ✅ window 1 done — see [`results/stage0a/SUMMARY.md`](./results/stage0a/SUMMARY.md). Median 14.7 Gbps / RTT 29.75 ms. → primary model decided in [`results/stage0a/MODEL_DECISION.md`](./results/stage0a/MODEL_DECISION.md): `nvidia/NVIDIA-Nemotron-Nano-9B-v2`, 2 prefill replicas. Two more time-of-day windows pending (Stage 0a-bis). |
+| 0a   | Real WAN transport baseline (g126 ↔ g304, public Internet) | ✅ window 1 done — see [`results/stage0a/SUMMARY.md`](./results/stage0a/SUMMARY.md). Median 14.7 Gbps / RTT 29.75 ms. Two more time-of-day windows still pending. |
 | 0b   | WireGuard tunnel ablation (one-off cost number) | 📋 |
-| A    | Single-machine 1P1D smoke on Y (Nemotron-Nano-9B-v2) | 📋 unblocked — bring up Mooncake master + vLLM 1P1D on g126 over loopback |
-| B    | X1↔X2 over IB-as-TCP, 3-config Λ_max sweep | 📋 blocked on X-side GPU access (k8s GPU Operator owns devices today; see [`discovery/VP_SUPPORT_TICKET.md`](./discovery/VP_SUPPORT_TICKET.md)) |
+| A    | Single-machine 1P1D smoke on Y (g126), K8s | ✅ **GREEN on Qwen2.5-7B-Instruct** — patched MooncakeConnector + vllm-v1 + bundled proxy → HTTP 200 / content `OK`. Negative finding on Nemotron-Nano-9B-v2 (vLLM 0.19.1 MooncakeConnector cannot serve Mamba2+attn hybrids). Evidence: [`../results/stageA/`](../results/stageA/). Caveat: bundled proxy doesn't drive full PD protocol — see [`../results/stageA/SUMMARY.md`](../results/stageA/SUMMARY.md). |
+| B    | g304 prefiller ↔ g307 decoder over X-cluster internal LACP, 3-config Λ_max sweep | 🔄 **manifests written** in [`k8s/stageB/`](./k8s/stageB/), pending `kubectl apply` |
 | C    | Stage B + `tc netem` continental profile | 📋 |
-| D    | Real cross-DC over public internet, three time-of-day repeats | 📋 |
+| D    | Real cross-DC over public internet (X-cluster prefiller ↔ g126 decoder), three time-of-day repeats | 🔄 **manifests written** in [`k8s/stageD/`](./k8s/stageD/), pending firewall whitelist + `kubectl apply` |
 
 When a stage is `🔄`, the working CSV is at
 `results/<stage>/<model>/<config>/<workload>/lambda_max.csv`. When green,
 `results/<stage>/SUMMARY.md` has the headline ratio and plots.
+
+### Active deployment surface
+
+```
+prfaas/m1.5-vllm-baseline/k8s/
+├── DISCOVERY.md       # K8s discovery on both clusters (RBAC, SC, GPU op, CNI, etc.)
+├── stageA/            # single-host PD smoke on g126 (Y cluster)   ✅ green
+├── stageB/            # internal-X PD-disagg sweep                   🔄 ready
+└── stageD/            # cross-DC PD-disagg                           🔄 ready
+```
+
+Per-stage README in each directory is the operational entry point (kubeconfig
+expectations, apply order, smoke command, tear-down).
