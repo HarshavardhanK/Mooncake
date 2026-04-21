@@ -19,10 +19,11 @@ data:
   # models even with the SupportsHMA shim applied — TpKVTopology calls
   # attn_backend.get_kv_cache_shape() on every layer, and the Mamba2 backend
   # raises NotImplementedError. Evidence:
-  #   prfaas/results/stageA/nemotron_failure_prefiller.log
-  # See prfaas/results/stageA/MC_PATCH_NOTE.md and SUMMARY.md for the full
-  # write-up. Hybrid-model support is a paper-relevant follow-up tracked in
-  # prfaas/PAPER_MODEL_PLAN.md.
+  #   prfaas/results/m1.5-vllm-baseline/stageA/nemotron_failure_prefiller.log
+  # See prfaas/results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md and
+  # SUMMARY.md for the full write-up. Hybrid-model support is a
+  # paper-relevant follow-up tracked in
+  # prfaas/docs/10-paper/PAPER_MODEL_PLAN.md.
   PRIMARY_MODEL: "Qwen/Qwen2.5-7B-Instruct"
   MODEL_LOCAL_DIR: "/models/Qwen_Qwen2.5-7B-Instruct"
   PRIMARY_MODEL_SHORT: "qwen2.5-7b-instruct"

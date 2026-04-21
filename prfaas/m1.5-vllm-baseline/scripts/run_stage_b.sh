@@ -43,7 +43,7 @@ if [[ "$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -c "^${X_GATEWAY_INTERNAL_
   m15_log "      Stage B is intended to run on X2 (the master/decoder host)."
 fi
 
-base_results="${M15_DIR}/results/stageB/${MODEL_TAG}"
+base_results="${M15_RESULTS_DIR}/stageB/${MODEL_TAG}"
 
 run_h() {
   m15_log "Config H — single TP=8 vLLM on X1 (no Mooncake)"

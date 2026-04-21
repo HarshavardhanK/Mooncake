@@ -1,0 +1,31 @@
+# Bench output is environment-specific; keep the dir but ignore generated files.
+# Whitelist the per-stage SUMMARY.md / MODEL_DECISION.md and the canonical CSV
+# we explicitly check in as evidence.
+*.csv
+*.log
+*.png
+*.json
+*.md
+!.gitignore
+!README.md
+!stage*/SUMMARY.md
+!stage*/MODEL_DECISION.md
+# Stage A unblock: in-place MooncakeConnector patch evidence is committed to
+# the repo so the operator can reproduce the failure mode and the patch's
+# effect without re-running the cluster. These files are small and stable.
+!stage*/MC_PATCH_NOTE.md
+!stageA/patch_confirmation.log
+!stageA/worker_init_blocker.log
+!stageA/prefiller_full.log
+!stageA/decoder_full.log
+!stageA/install_mooncake_init.log
+# A single canonical CSV per stage may be checked in by name; commit it
+# explicitly with `git add -f` if needed, or place under a subdir.
+!stage*/*-to-*.csv
+# Phase 2 analytical artifacts are evidence — small, stable, and what
+# downstream phases (3+) reason from. Whitelist the canonical filenames
+# explicitly so the catch-all *.md / *.csv / *.png above doesn't drop them.
+!phase2_analytical/PHASE2_PICK.md
+!phase2_analytical/MODEL_AND_EQUATIONS.md
+!phase2_analytical/lambda_max_predictions.csv
+!phase2_analytical/PAPER_FIG8_REGEN.png

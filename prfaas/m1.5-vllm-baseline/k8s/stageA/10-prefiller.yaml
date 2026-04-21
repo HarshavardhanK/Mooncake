@@ -10,9 +10,9 @@
 #     kv_cache_shape = attn_backend.get_kv_cache_shape(...)
 #   File ".../v1/attention/backend.py", line 91, in get_kv_cache_shape
 #     raise NotImplementedError
-# Evidence: prfaas/results/stageA/nemotron_failure_prefiller.log
-# Write-up: prfaas/results/stageA/MC_PATCH_NOTE.md, SUMMARY.md
-# Hybrid-model follow-up: prfaas/PAPER_MODEL_PLAN.md
+# Evidence: prfaas/results/m1.5-vllm-baseline/stageA/nemotron_failure_prefiller.log
+# Write-up: prfaas/results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md, SUMMARY.md
+# Hybrid-model follow-up: prfaas/docs/10-paper/PAPER_MODEL_PLAN.md
 #
 # The SupportsHMA in-place patch below is preserved (idempotent, no-op for
 # dense models) so a future swap back to a hybrid model only requires

@@ -1,4 +1,4 @@
-# Phase 1 — Φkv replication (paper-faithful, see prfaas/PHASE1_PHIKV_PLAN.md)
+# Phase 1 — Φkv replication (paper-faithful, see prfaas/docs/10-paper/PHASE1_PHIKV_PLAN.md)
 #
 # Same RBAC reality as Stage A: Y cluster's `mks:customer` only RoleBinds in
 # the `default` namespace, so every Phase 1 object lives there too. Group

@@ -6,7 +6,7 @@
 # Why a separate job?
 #   We pivoted to a dense model after empirically confirming Mamba2 KV
 #   transfer is unsupported in vLLM 0.19.1's MooncakeConnector
-#   (see prfaas/results/stageA/MC_PATCH_NOTE.md). We keep both jobs so
+#   (see prfaas/results/m1.5-vllm-baseline/stageA/MC_PATCH_NOTE.md). We keep both jobs so
 #   the negative finding is reproducible from a clean PVC, and the
 #   green smoke is reproducible from a clean PVC.
 apiVersion: batch/v1

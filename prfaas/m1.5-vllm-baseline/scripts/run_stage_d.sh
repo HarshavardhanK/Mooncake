@@ -40,7 +40,7 @@ m15_require_env PRFAAS_ROLE PRIMARY_MODEL PRIMARY_MODEL_TAG \
 : "${MODEL:=${PRIMARY_MODEL}}"
 : "${MODEL_TAG:=${PRIMARY_MODEL_TAG}}"
 
-base_results="${M15_DIR}/results/stageD/${MODEL_TAG}"
+base_results="${M15_RESULTS_DIR}/stageD/${MODEL_TAG}"
 
 case "${PRFAAS_ROLE}:${CONFIG^^}" in
   x_gateway:P)

@@ -1,0 +1,57 @@
+# Phase 3 cross-DC — Y cluster (aln1-beta-harsha-g126-beta, dfw1-beta).
+#
+# Lives in `default` because Y's mks:customer RoleBinding only grants us
+# workload CRUD inside `default` (verified for Stage A and Phase 1; same
+# constraint).
+#
+# This ConfigMap hard-codes the cross-DC endpoint of the X prefiller:
+# g304's public IP (159.26.81.50). The decoder dials g304:8998 over the WAN
+# for Mooncake bootstrap; the router dials g304:30001 over the WAN for
+# /v1/chat/completions prefill.
+#
+# Lifecycle (cleanup on Y):
+#   kubectl --context aln1-beta-harsha-g126-beta -n default \
+#     delete deploy,svc,job,cm -l prfaas.experiment/phase=3-xdc
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-phase3-xdc-env
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    app.kubernetes.io/part-of: prfaas
+data:
+  # ===== Model =====
+  # Re-use the Phase 1 model PVC mount path. Both Phase 1 and Phase 3 cross-DC
+  # decoder mount the same `model-weights-phase1` PVC at /models read-only.
+  MODEL_REPO: "moonshotai/Kimi-Linear-48B-A3B-Instruct"
+  MODEL_LOCAL_DIR: "/models/moonshotai_Kimi-Linear-48B-A3B-Instruct"
+  MODEL_SHORT: "kimi-linear-48b"
+  SERVED_MODEL_NAME: "kimi-linear-48b"
+
+  # ===== Tensor parallelism =====
+  # Cross-DC config uses TP=8 on each side (paper-aligned). g126 has 8 H100
+  # 80GB SXM5; the decoder takes them all.
+  TP_SIZE: "8"
+
+  # ===== Ports =====
+  # Decoder API (cluster-internal; router reaches it via decoder.default.svc).
+  PRFAAS_SGLANG_API_PORT: "30001"
+  # Router user-facing port. Bench traffic / smoke probe go here.
+  ROUTER_PORT: "8000"
+
+  # ===== Engine =====
+  SGLANG_IMAGE: "lmsysorg/sglang:v0.5.9-cu129-amd64"
+  MC_TCP_ENABLE_CONNECTION_POOL: "1"
+  MC_LEGACY_RPC_PORT_BINDING: "1"
+  MOONCAKE_PROTOCOL: "tcp"
+  TORCHINDUCTOR_COMPILE_THREADS: "1"
+  FLA_CORE_VERSION: "0.4.0"
+
+  # ===== CROSS-DC ENDPOINT (the bit that makes Phase 3 "cross-DC") =====
+  # g304's public IP. The decoder dials this for Mooncake bootstrap; the
+  # router dials it for the prefill API. NOT through any K8s Service.
+  PREFILLER_HOST: "159.26.81.50"
+  PREFILLER_API_PORT: "30001"
+  PREFILLER_BOOTSTRAP_PORT: "8998"

@@ -1,0 +1,70 @@
+# Phase 3 smoke — Services for prefiller, decoder, and router.
+#
+# All ClusterIP. The router talks to the engines via their ClusterIP DNS
+# names (prefiller.default.svc / decoder.default.svc). The decoder also
+# dials the prefiller's bootstrap port through prefiller.default.svc:8998.
+#
+# We expose the router via a ClusterIP and the operator port-forwards to
+# it from their workstation when running the smoke. We deliberately do NOT
+# create a NodePort or LoadBalancer for the router on the smoke namespace —
+# this whole stack is internal validation traffic, not user-facing.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    prfaas.role: kv_producer
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: prefiller-phase3-smoke
+  ports:
+    - name: api
+      port: 30001
+      targetPort: 30001
+      protocol: TCP
+    - name: bootstrap
+      port: 8998
+      targetPort: 8998
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: decoder
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    prfaas.role: kv_consumer
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: decoder-phase3-smoke
+  ports:
+    - name: api
+      port: 30001
+      targetPort: 30001
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    prfaas.role: router
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: router-phase3-smoke
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

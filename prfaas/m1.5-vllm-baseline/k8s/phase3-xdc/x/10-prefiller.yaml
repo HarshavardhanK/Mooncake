@@ -1,0 +1,183 @@
+# Phase 3 cross-DC — X-side prefiller (kv_producer-equivalent role).
+#
+# WHY hostNetwork: true
+#   The decoder + router live on cluster Y (g126, dfw1-beta). Y cannot
+#   resolve cluster-internal Services on X and there is no shared overlay.
+#   With hostNetwork=true the pod binds directly to g304's network
+#   namespace, so 30001 (SGLang API) and 8998 (Mooncake bootstrap) listen
+#   on g304's public-routable interface (159.26.81.50). The router on Y
+#   dials those endpoints directly — no NodePort, no overlay, no DNS.
+#
+# WHY g304 specifically
+#   It is the gateway-side X node (159.26.81.50). g307 also has a public IP
+#   but g304 is the only one with NOPASSWD sudo for the operator-run
+#   firewall script (`../firewall/g304-phase3-iptables.sh`) AND its public
+#   IP is what Stage 0a characterized — keeping the path identical to the
+#   wire we measured and to Stage D's whitelist (port 8998 already open on
+#   g304 from Stage D iptables; this rule is reused).
+#
+# WHY mooncake_protocol: "tcp" is hard-coded
+#   X has rdma/hca_shared_devices_a exposed cluster-wide. If we leave the
+#   protocol unset SGLang+Mooncake may auto-pick rdma when it sees the HCA,
+#   which (a) cannot leave the cluster and (b) would invalidate the Stage 0a
+#   TCP measurements as a baseline.
+#
+# Model bytes assumption
+#   /scratch/models/moonshotai_Kimi-Linear-48B-A3B-Instruct must already
+#   exist on g304. The Phase 3 staging Job
+#   (01-model-staging-job-g304.yaml) owns this. Apply that Job and wait
+#   for it to complete before applying this Deployment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefiller-phase3-xdc
+  namespace: prfaas-staged
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "X"
+    prfaas.role: kv_producer
+    app.kubernetes.io/part-of: prfaas
+    app: prefiller-phase3-xdc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prefiller-phase3-xdc
+  template:
+    metadata:
+      labels:
+        app: prefiller-phase3-xdc
+        prfaas.role: kv_producer
+        prfaas.experiment/phase: "3-xdc"
+        prfaas.experiment/cluster: "X"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      tolerations:
+        - key: voltagepark.io/cni-pending
+          operator: Exists
+          effect: NoSchedule
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 30
+      volumes:
+        # Pre-staged model bytes on g304's /scratch RAID0.
+        - name: scratch
+          hostPath:
+            path: /scratch/models
+            type: Directory
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      containers:
+        - name: sglang-prefiller
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-xdc-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            # With hostNetwork=true status.hostIP is g304's host IP (the
+            # public-routable one). Mooncake needs to advertise this so the
+            # decoder dials the right interface.
+            - name: PUBLIC_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: MC_TCP_ENABLE_CONNECTION_POOL
+              value: "1"
+            - name: MC_LEGACY_RPC_PORT_BINDING
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[prefiller-xdc] sanity"
+              command -v python3 && python3 --version
+              nvidia-smi -L || true
+              echo "[prefiller-xdc] host IP: ${PUBLIC_HOST_IP}"
+              echo "[prefiller-xdc] api port: ${PRFAAS_SGLANG_API_PORT}"
+              echo "[prefiller-xdc] bootstrap port: ${MOONCAKE_BOOTSTRAP_PORT}"
+              echo "[prefiller-xdc] model: ${MODEL_LOCAL_DIR}"
+              echo "[prefiller-xdc] tp:    ${TP_SIZE}"
+
+              if [[ ! -f "${MODEL_LOCAL_DIR}/config.json" ]]; then
+                echo "[prefiller-xdc] FATAL: ${MODEL_LOCAL_DIR}/config.json not found on g304."
+                echo "[prefiller-xdc] Apply 01-model-staging-job-g304.yaml first and wait for it to complete."
+                exit 11
+              fi
+
+              echo "[prefiller-xdc] installing fla-core (Kimi-Linear KDA kernels)"
+              pip install --no-cache-dir --quiet "fla-core>=${FLA_CORE_VERSION}"
+
+              # See ENGINE_DECISION.md §Open items for flag verification.
+              # The flag set is identical to phase3-smoke; the only differences
+              # are TP=8 and that 0.0.0.0 here means g304's public IP (because
+              # hostNetwork=true).
+              exec python3 -m sglang.launch_server \
+                --model-path "${MODEL_LOCAL_DIR}" \
+                --served-model-name "${SERVED_MODEL_NAME}" \
+                --host 0.0.0.0 \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --tp "${TP_SIZE}" \
+                --trust-remote-code \
+                --mem-fraction-static 0.85 \
+                --disable-radix-cache \
+                --disaggregation-mode prefill \
+                --disaggregation-transfer-backend mooncake \
+                --disaggregation-bootstrap-port "${MOONCAKE_BOOTSTRAP_PORT}" \
+                --log-level info
+          # With hostNetwork=true containerPort entries are advisory; we
+          # list them for documentation. The actual binds are 0.0.0.0:30001
+          # and 0.0.0.0:8998 on g304's public interface.
+          ports:
+            - name: api
+              containerPort: 30001
+              hostPort: 30001
+              protocol: TCP
+            - name: bootstrap
+              containerPort: 8998
+              hostPort: 8998
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "8"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "8"
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch/models
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm

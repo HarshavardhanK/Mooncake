@@ -40,7 +40,7 @@ fi
 MODEL_TAG="${MODEL//\//_}"
 SERVED_NAME="${SERVED_NAME:-${MODEL_TAG##*nvidia_NVIDIA-}}"
 SERVED_NAME="${SERVED_NAME,,}"
-RESULTS_DIR="${M15_DIR}/results/stageA/${MODEL_TAG}"
+RESULTS_DIR="${M15_RESULTS_DIR}/stageA/${MODEL_TAG}"
 mkdir -p "${RESULTS_DIR}"
 
 m15_log "Stage A: 1P1D smoke on ${MODEL} (4P+4D on localhost)"

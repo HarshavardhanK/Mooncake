@@ -11,7 +11,10 @@ set -euo pipefail
 
 target="${1:?usage: $0 <host:port>}"
 ts=$(date -u +"%Y%m%dT%H%M%SZ")
-out_dir="/home/ubuntu/prfaas/results/stage0a/${ts}"
+# Default to the on-host clone of the consolidated results tree; override with
+# RESULTS_ROOT if running from a different working copy.
+results_root="${RESULTS_ROOT:-/home/ubuntu/Mooncake/prfaas/results/m1.5-vllm-baseline}"
+out_dir="${results_root}/stage0a/${ts}"
 mkdir -p "$out_dir"
 csv="$out_dir/probe.csv"
 

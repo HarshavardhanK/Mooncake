@@ -40,7 +40,7 @@ clear_wan() {
 }
 trap clear_wan EXIT
 
-base_results="${M15_DIR}/results/stageC/${PRIMARY_MODEL_TAG}"
+base_results="${M15_RESULTS_DIR}/stageC/${PRIMARY_MODEL_TAG}"
 
 for profile in ${WAN_PROFILES}; do
   m15_log "applying WAN profile '${profile}' on ${IB_IFACE} (both sides)"

@@ -1,0 +1,114 @@
+# Phase 3 cross-DC — sglang_router with PD-disaggregation, on Y.
+#
+# Lives on g126. Talks to:
+#   - The X prefiller over the WAN: http://${PREFILLER_HOST}:${PREFILLER_API_PORT}
+#     (i.e. http://159.26.81.50:30001)
+#   - The Y decoder cluster-internal: http://decoder-xdc.default.svc:30001
+#
+# This is the user-facing entrypoint. The bench script and smoke probe
+# both POST to router-xdc.default.svc:8000.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-phase3-xdc
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    prfaas.role: router
+    app.kubernetes.io/part-of: prfaas
+    app: router-phase3-xdc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: router-phase3-xdc
+  template:
+    metadata:
+      labels:
+        app: router-phase3-xdc
+        prfaas.role: router
+        prfaas.experiment/phase: "3-xdc"
+        prfaas.experiment/cluster: "Y"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: sglang-router
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-xdc-env
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              PREFILL_URL="http://${PREFILLER_HOST}:${PREFILLER_API_PORT}"
+              DECODE_URL="http://decoder-xdc.default.svc.cluster.local:${PRFAAS_SGLANG_API_PORT}"
+
+              echo "[router-xdc] launching sglang_router"
+              echo "[router-xdc] prefill (cross-DC): ${PREFILL_URL}"
+              echo "[router-xdc] decode  (intra-Y): ${DECODE_URL}"
+              echo "[router-xdc] listen: 0.0.0.0:${ROUTER_PORT}"
+
+              for url in "${PREFILL_URL}" "${DECODE_URL}"; do
+                echo "[router-xdc] waiting for ${url}/health"
+                for i in $(seq 1 120); do
+                  if curl -fsS --max-time 5 "${url}/health" >/dev/null 2>&1; then
+                    echo "[router-xdc] ${url} up after ${i} attempts"
+                    break
+                  fi
+                  sleep 5
+                done
+              done
+
+              exec python3 -m sglang_router.launch_router \
+                --pd-disaggregation \
+                --prefill "${PREFILL_URL}" \
+                --decode "${DECODE_URL}" \
+                --host 0.0.0.0 \
+                --port "${ROUTER_PORT}"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: router-xdc
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    prfaas.role: router
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: router-phase3-xdc
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

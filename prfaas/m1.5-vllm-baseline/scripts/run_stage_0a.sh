@@ -5,7 +5,7 @@
 #   x_gateway: starts run_target.sh (idempotent), prints the chosen RPC port.
 #   y:         requires TARGET_RPC_PORT in env or --rpc-port; runs the M1 matrix
 #              against $X_GATEWAY_PUBLIC_IP and writes results under
-#              prfaas/m1-tcp-bench/results/cross_dc_xy/<timestamp>/.
+#              prfaas/results/m1-tcp-bench/cross_dc_xy/<timestamp>/.
 #   x_internal: rejected (no public-side bench from the IB-only node).
 #
 # Usage (X-gateway):
@@ -50,7 +50,7 @@ case "${PRFAAS_ROLE}" in
          Y_PUBLIC_IP="${Y_PUBLIC_IP}" \
          bash "${M15_DIR}/scripts/firewall_setup.sh" stage0
     local_ts="$(date +%Y%m%d-%H%M)"
-    out_dir="${REPO_ROOT}/prfaas/m1-tcp-bench/results/cross_dc_xy/${local_ts}"
+    out_dir="${REPO_ROOT}/prfaas/results/m1-tcp-bench/cross_dc_xy/${local_ts}"
     mkdir -p "${out_dir}"
     m15_log "writing results to ${out_dir}"
     MODE="${MODE}" PROTOCOL="${PROTOCOL}" BENCH_BIN="${BENCH_BIN}" \
@@ -62,8 +62,8 @@ case "${PRFAAS_ROLE}" in
     m15_log "after ≥3 time-of-day repeats, decide model:"
     cat <<EOF
   python3 ${M15_DIR}/scripts/extract_lambda_max.py --decide-model \\
-    --stage0-results ${REPO_ROOT}/prfaas/m1-tcp-bench/results/cross_dc_xy/ \\
-    --out ${M15_DIR}/results/stage0/MODEL_DECISION.md
+    --stage0-results ${REPO_ROOT}/prfaas/results/m1-tcp-bench/cross_dc_xy/ \\
+    --out ${REPO_ROOT}/prfaas/results/m1.5-vllm-baseline/stage0a/MODEL_DECISION.md
 EOF
     ;;
   x_internal)

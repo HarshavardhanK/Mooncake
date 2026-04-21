@@ -1,0 +1,58 @@
+# Phase 3 cross-DC — end-to-end smoke probe.
+#
+# Sends a single short /v1/chat/completions request through the router on Y.
+# If this returns a 200 with non-empty content, the cross-DC PD path works.
+# This is the gate before running the full Λ_max sweep (XDC_RUNBOOK §3).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phase3-xdc-smoke-probe
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    prfaas.role: probe
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: phase3-xdc-smoke-probe
+        prfaas.experiment/phase: "3-xdc"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: probe
+          image: curlimages/curl:8.10.1
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-xdc-env
+          command: ["sh", "-lc"]
+          args:
+            - |
+              set -eu
+              ROUTER="http://router-xdc.default.svc.cluster.local:${ROUTER_PORT}"
+              echo "[probe-xdc] target router: ${ROUTER}"
+              echo "[probe-xdc] waiting up to 10 minutes for router /health"
+              for i in $(seq 1 120); do
+                if curl -fsS --max-time 3 "${ROUTER}/health" >/dev/null 2>&1; then
+                  echo "[probe-xdc] router up after ${i} attempts"
+                  break
+                fi
+                sleep 5
+              done
+
+              echo "[probe-xdc] sending chat completion (cross-DC)"
+              T0=$(date +%s%3N)
+              RESP=$(curl -fsS --max-time 180 -X POST \
+                -H 'Content-Type: application/json' \
+                -d '{"model":"'"${SERVED_MODEL_NAME}"'","messages":[{"role":"user","content":"Reply with exactly: PASS"}],"max_tokens":8,"temperature":0}' \
+                "${ROUTER}/v1/chat/completions")
+              T1=$(date +%s%3N)
+              echo "[probe-xdc] elapsed: $((T1 - T0)) ms"
+              echo "[probe-xdc] raw response:"
+              echo "${RESP}"
+              echo "${RESP}" | grep -q '"content"' || { echo "[probe-xdc] FAIL: no content"; exit 2; }
+              echo "[probe-xdc] PASS"

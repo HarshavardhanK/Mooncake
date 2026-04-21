@@ -1,0 +1,74 @@
+# Phase 3 cross-DC — X cluster (g304, prefiller side).
+#
+# Lives in `prfaas-staged` namespace on cluster X. We re-use the existing
+# `prfaas-staged` namespace from Stage D so the agent does not need to
+# create new RoleBindings on X (the operator already provisioned namespace
+# access there for Stage D's vLLM scaffolds).
+#
+# This ConfigMap fixes the model path on g304's local /scratch and the
+# SGLang flags. Cross-DC reachability is solved by hostNetwork=true on the
+# prefiller pod (10-prefiller.yaml) so g304's public IP (159.26.81.50) is
+# what listens on 30001 (api) and 8998 (Mooncake bootstrap).
+#
+# Lifecycle (cleanup on X):
+#   kubectl --context <X-context> -n prfaas-staged \
+#     delete deploy,svc,job,cm -l prfaas.experiment/phase=3-xdc
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prfaas-staged
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    app.kubernetes.io/part-of: prfaas
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-phase3-xdc-env
+  namespace: prfaas-staged
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "X"
+    app.kubernetes.io/part-of: prfaas
+data:
+  # ===== Model =====
+  # Phase 2's pick. Owned by the staging Job in 01-model-staging-job-g304.yaml,
+  # which writes to g304's /scratch/models. We mount that hostPath read-only
+  # in the prefiller pod.
+  MODEL_REPO: "moonshotai/Kimi-Linear-48B-A3B-Instruct"
+  MODEL_LOCAL_DIR: "/scratch/models/moonshotai_Kimi-Linear-48B-A3B-Instruct"
+  MODEL_SHORT: "kimi-linear-48b"
+  SERVED_MODEL_NAME: "kimi-linear-48b"
+
+  # ===== Tensor parallelism =====
+  # Cross-DC config uses TP=8 on each side (paper-aligned, full single-box
+  # capacity). g304 has 8 H100 80GB SXM5.
+  TP_SIZE: "8"
+
+  # ===== Ports =====
+  # API port the router on Y dials over the WAN. Same port the smoke uses
+  # (cluster-internal there, public-IP-bound here via hostNetwork).
+  PRFAAS_SGLANG_API_PORT: "30001"
+  # Mooncake bootstrap port the decoder on Y dials over the WAN. Same as
+  # Stage D for firewall-rule reuse (g304 already has 8998 whitelisted from
+  # 147.185.40.126/32 by Stage D's iptables script).
+  MOONCAKE_BOOTSTRAP_PORT: "8998"
+
+  # ===== Engine =====
+  SGLANG_IMAGE: "lmsysorg/sglang:v0.5.9-cu129-amd64"
+  # Mandatory cross-DC TCP knobs (Stage 0a). No connection pool → 4× collapse
+  # in throughput; legacy RPC port binding required so the firewall whitelist
+  # actually catches the right ports.
+  MC_TCP_ENABLE_CONNECTION_POOL: "1"
+  MC_LEGACY_RPC_PORT_BINDING: "1"
+  MOONCAKE_PROTOCOL: "tcp"
+
+  # ===== TORCH_INDUCTOR workaround =====
+  TORCHINDUCTOR_COMPILE_THREADS: "1"
+
+  # ===== fla-core (Kimi-Linear KDA kernels) =====
+  FLA_CORE_VERSION: "0.4.0"
+
+  # ===== Hugging Face cache (for the staging Job; engine never downloads) =====
+  HF_HUB_DOWNLOAD_TIMEOUT: "600"
+  HF_HUB_ENABLE_HF_TRANSFER: "1"
