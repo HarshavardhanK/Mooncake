@@ -1,0 +1,185 @@
+{
+  "node": "g307",
+  "label": "x_internal",
+  "public_ip": "159.26.81.53",
+  "ssh": "sshv vpsupport@159.26.81.53",
+  "ssh_ok": true,
+  "discovery_time_utc": "2026-04-19T19:56Z",
+
+  "os": {
+    "hostname": "g307",
+    "kernel": "Linux 6.8.0-100-generic #100-Ubuntu SMP PREEMPT_DYNAMIC Tue Jan 13 16:40:06 UTC 2026 x86_64",
+    "distro": "Ubuntu 24.04.4 LTS (Noble Numbat)"
+  },
+
+  "user": {
+    "whoami": "vpsupport",
+    "uid": 1001,
+    "gid": 1001,
+    "groups": ["vpsupport"],
+    "sudo_nopasswd": false
+  },
+
+  "cpu": {
+    "nproc": 104,
+    "model": "Intel(R) Xeon(R) Platinum 8470",
+    "sockets_inferred": 2
+  },
+
+  "ram_gb": 1007,
+  "swap_gb": 0,
+
+  "numa_nodes": 8,
+  "numa_distances_summary": "Two clusters of 4 nodes each (intra-cluster=12, cross-cluster=21); typical dual-socket Sapphire-Rapids SNC4 layout",
+
+  "gpus": {
+    "nvidia_smi_present": false,
+    "nvidia_smi_note": "nvidia-smi not on host PATH; GPUs likely owned by NVIDIA driver container (see /run/nvidia/driver). Host driver module IS loaded.",
+    "driver_version": "580.126.20",
+    "driver_build_date": "2026-02-18",
+    "count_inferred": "unknown (host cannot enumerate; need to exec inside the nvidia-driver container or run on a k8s pod)",
+    "model_inferred": "unknown — IB topology (8 active 400 Gbps ports) is consistent with an 8-GPU H100 SXM box"
+  },
+
+  "cuda_version": null,
+  "cuda_notes": "No /usr/local/cuda*; no nvcc on PATH. CUDA toolkit not installed on host.",
+
+  "ib": {
+    "hca_count": 12,
+    "active_ib_ports": 8,
+    "active_ib_devices": ["mlx5_0", "mlx5_3", "mlx5_4", "mlx5_5", "mlx5_6", "mlx5_9", "mlx5_10", "mlx5_11"],
+    "ib_link_rate_gbps": 400,
+    "ib_card_type": "MT4129 (ConnectX-7 / NDR)",
+    "ib_fw": "28.39.1002",
+    "ethernet_devices": {
+      "mlx5_1": "Active 100 Gbps Ethernet (netdev enp27s0f0np0, used by bootnet bond? -- bootnet has 10.10.34.5/24)",
+      "mlx5_2": "Down",
+      "mlx5_7": "Down",
+      "mlx5_8": "Down"
+    },
+    "ib_netdevs": [
+      "ibp26s0", "ibp60s0", "ibp77s0", "ibp94s0",
+      "ibp156s0", "ibp188s0", "ibp204s0", "ibp220s0"
+    ],
+    "ib_ipv4_addresses": [],
+    "ib_ipv4_note": "All 8 IB netdevs are UP but have NO IPv4 — only link-local IPv6. IPoIB is not configured. Mooncake transfer-engine over RDMA can still use IB by HCA name (UD/RC verbs), but any TCP-bootstrap step that needs an IB-side IP cannot work as-is."
+  },
+
+  "network": {
+    "primary_iface": "bootnet",
+    "primary_ipv4": "10.10.34.5/24",
+    "primary_iface_speed_note": "bootnet appears to be the management interface (likely 1G). All routed traffic to other public/cluster nodes goes through default gw 10.10.34.254.",
+    "default_gateway": "10.10.34.254",
+    "route_to_y": {
+      "dest": "147.185.40.126",
+      "via": "10.10.34.254",
+      "dev": "bootnet",
+      "src": "10.10.34.5"
+    },
+    "route_to_g304": {
+      "dest": "159.26.81.50",
+      "via": "10.10.34.254",
+      "dev": "bootnet",
+      "src": "10.10.34.5",
+      "note": "Routes via management gateway, not IB."
+    },
+    "kubernetes_overlay": {
+      "cni": "cilium",
+      "cilium_host": "172.28.1.52/32",
+      "pod_cidrs_seen": ["172.28.0.0/24", "172.28.1.0/24", "172.28.2.0/24"],
+      "note": "g307 is an active Kubernetes node (cilium_vxlan, kubelet :10250, lxc* veths). GPUs almost certainly attached to a workload pod, not free."
+    },
+    "listening_ports_sample": [22, 111, 4244, 8134, 9964, 10221, 10250, 20256, 20257, 29653]
+  },
+
+  "firewall": {
+    "iptables_input_policy": "ACCEPT",
+    "iptables_chains_seen": ["CILIUM_INPUT", "KUBE-FIREWALL"],
+    "ufw": "inactive",
+    "firewalld": "not installed",
+    "note": "Host firewall permissive, but k8s/cilium chains will police traffic."
+  },
+
+  "storage": {
+    "root_fs_gb_avail": 388,
+    "scratch": {
+      "path": "/scratch",
+      "size_tb": 14,
+      "device": "/dev/md0",
+      "used_pct": 1,
+      "shared": false
+    },
+    "shared_fs": {
+      "type": "nfs (v3)",
+      "mount": "10.10.69.1:/data",
+      "mount_path": "/data",
+      "size_gb": 513,
+      "used_pct": 98,
+      "note": "NFS share on 10.10.69.1 — likely the same staging share g304 sees (both are inside the same X-cluster mgmt subnet 10.10.x.x). Already 98% full; only ~12 GB free. Cannot stage Llama-3.1-70B weights here without cleanup."
+    },
+    "vast_or_gpfs": "none detected",
+    "tmp_dirs": {
+      "/mnt": "empty",
+      "/scratch": "empty (lost+found only)",
+      "/data": "world-writable but nearly full"
+    }
+  },
+
+  "software": {
+    "python3": "3.12.3",
+    "pip": "24.0",
+    "gcc": "13.3.0",
+    "g++": "13.3.0",
+    "cmake": null,
+    "etcd": null,
+    "etcdctl": null,
+    "docker": null,
+    "vllm": null,
+    "transfer_engine_libs": null,
+    "jemalloc": null,
+    "note": "Bare host: no CUDA toolkit, no cmake, no docker, no etcd, no vllm, no Mooncake libs, no jemalloc. Anything we need must be installed (which requires sudo we don't have) or shipped in a container."
+  },
+
+  "outbound": {
+    "to_g304_159_26_81_50": {
+      "tcp22": "TIMEOUT (operation now in progress)",
+      "ping_loss_pct": 100,
+      "note": "g307 CANNOT reach g304 over the public/cluster path. Both nodes are X-cluster but the management bootnet 10.10.34.0/24 cannot route to 159.26.81.50."
+    },
+    "to_y_147_185_40_126": {
+      "tcp22": "succeeded",
+      "ping_rtt_ms_avg": 29.8,
+      "note": "Y is reachable from g307 over the management network (~30 ms RTT)."
+    },
+    "ib_to_ib": {
+      "tested": false,
+      "reason": "g307 has no IPv4 on any IB iface, and we have no IB-side IP for g304. IB-level connectivity cannot be tested via ping; would need a Mooncake/ibverbs RDMA test using HCA names."
+    }
+  },
+
+  "existing_repos": {
+    "home_dir": "/home/vpsupport",
+    "Mooncake": null,
+    "mooncake": null,
+    "prfaas": null,
+    "note": "Pristine vpsupport home — only .bashrc/.profile/.cache/.bash_logout. No prior PrFaaS work."
+  },
+
+  "blockers": [
+    "no_passwordless_sudo: cannot install packages or modify host config",
+    "no_nvidia_smi_on_host: GPUs are owned by k8s NVIDIA-driver container; need a pod (or container exec) to use them — vpsupport has no obvious k8s/kubectl access from this user",
+    "no_cuda_toolkit_on_host: cannot build/run CUDA workloads without sudo or a container",
+    "no_vllm_no_mooncake_libs: software baseline empty; Stage B needs both",
+    "no_ipv4_on_ib: IPoIB not configured on any of 8 IB ports — bootstrap layer must use mgmt iface, but…",
+    "g307_cannot_reach_g304: TCP+ping to 159.26.81.50 both fail. The two X-cluster nodes are NOT mutually reachable over their public IPs from g307. We need either (a) a shared IB subnet IP plan, or (b) connectivity opened on bootnet/peer subnet.",
+    "shared_NFS_/data_at_98%: only 12 GB free — insufficient to stage 70B model weights"
+  ],
+
+  "positives": [
+    "8x active 400 Gbps ConnectX-7 IB ports — full HGX-class fabric available if we get IB IPs / Mooncake RDMA",
+    "1 TB RAM, 104 cores, 8 NUMA nodes — plenty of CPU headroom",
+    "14 TB local /scratch (RAID, empty) — usable for model staging if we can write to it (verify write perms)",
+    "NVIDIA driver 580.126.20 already loaded",
+    "Y reachable at ~30 ms RTT from bootnet"
+  ]
+}

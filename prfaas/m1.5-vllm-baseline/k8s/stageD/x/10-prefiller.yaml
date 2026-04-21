@@ -1,0 +1,202 @@
+# Stage D — X-side prefiller (kv_producer), pinned to g304.
+#
+# WHY hostNetwork: true
+#   The decoder lives in a *different* K8s cluster (Y, dfw1-beta). It cannot
+#   resolve cluster-internal Services on X and there is no shared overlay.
+#   With hostNetwork=true the pod binds directly to the node's network
+#   namespace, so 8998 (Mooncake bootstrap) and the dynamic transport range
+#   (13000-17000) listen on g304's public-routable interface. The decoder
+#   on g126 dials 159.26.81.50:8998 directly, no NodePort, no overlay,
+#   no cluster DNS.
+#
+# WHY g304 specifically
+#   It is the gateway-side X node (159.26.81.50). g307 also has a public IP
+#   but g304 is the only one with NOPASSWD sudo on the host (relevant for
+#   the operator-run iptables update) AND its public IP is what Stage 0a
+#   characterized — keeping the path identical to the wire we measured.
+#
+# WHY mooncake_protocol: "tcp" is hard-coded
+#   X has rdma/hca_shared_devices_a exposed cluster-wide. If we leave the
+#   protocol unset the connector may auto-pick rdma when it sees the HCA,
+#   which (a) cannot leave the cluster and (b) would invalidate the Stage 0a
+#   TCP measurements as a baseline.
+#
+# Model bytes assumption
+#   /scratch/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2 must already exist on
+#   g304. The Stage B agent owns the staging Job
+#   (k8s/stageB/01-model-staging-job-g304.yaml). Stage D depends on Stage B
+#   having run that Job at least once. README.md spells this out as a
+#   pre-flight check.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefiller-staged
+  namespace: prfaas-staged
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+    app: prefiller-staged
+    prfaas.role: kv_producer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prefiller-staged
+  template:
+    metadata:
+      labels:
+        app: prefiller-staged
+        prfaas.role: kv_producer
+        prfaas.experiment/stage: "D"
+        prfaas.config: "P"
+    spec:
+      # Pinned to g304 (X gateway, public IP 159.26.81.50). Stage 0a wire
+      # measurements are g126 -> g304; reusing the same node keeps the path
+      # identical to what we characterized.
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      # Tolerate the gpu-validated=false / cni-pending=true taints that
+      # might still be present on first apply. Once the GPU operator
+      # validates g304 these go away; the toleration is harmless either way.
+      tolerations:
+        - key: voltagepark.io/cni-pending
+          operator: Exists
+          effect: NoSchedule
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      hostNetwork: true
+      # Required when hostNetwork is on so the pod resolves Services through
+      # the cluster's CoreDNS (otherwise it would try the host's resolv.conf
+      # and never see kube-dns).
+      dnsPolicy: ClusterFirstWithHostNet
+      terminationGracePeriodSeconds: 30
+      volumes:
+        # Pre-staged model bytes on g304's /scratch RAID0. Owned by the
+        # Stage B model-staging Job (k8s/stageB/01-model-staging-job-g304.yaml).
+        - name: model
+          hostPath:
+            path: /scratch/models
+            type: Directory
+        - name: mc-pip
+          emptyDir: {}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      initContainers:
+        - name: install-mooncake
+          image: python:3.11-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1'
+              python3 -c "import sys; sys.path.insert(0,'/opt/mc'); import mooncake; print('mooncake', mooncake.__file__)"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.19.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-staged-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            # With hostNetwork=true status.podIP is the host IP — exactly what
+            # the connector should advertise so the decoder dials the right
+            # interface. (g304 = 159.26.81.50 in our deployment.)
+            - name: VLLM_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            # Mandatory cross-DC TCP knobs (also in the ConfigMap, but we set
+            # them on the pod too so a future operator who forgets envFrom
+            # cannot accidentally turn them off).
+            - name: MC_TCP_ENABLE_CONNECTION_POOL
+              value: "1"
+            - name: MC_LEGACY_RPC_PORT_BINDING
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[prefiller-staged] sanity"
+              command -v python3 && python3 --version
+              python3 -c "import vllm, mooncake; print('vllm', vllm.__version__, 'mooncake', mooncake.__file__)" || \
+                echo "[prefiller-staged] sanity import failed (continuing)"
+              nvidia-smi -L || true
+              echo "[prefiller-staged] host IP: ${VLLM_HOST_IP}"
+              echo "[prefiller-staged] bootstrap port: ${VLLM_MOONCAKE_BOOTSTRAP_PORT}"
+              if [[ ! -d "${MODEL_LOCAL_DIR}" ]]; then
+                echo "[prefiller-staged] FATAL: ${MODEL_LOCAL_DIR} not found on g304."
+                echo "[prefiller-staged] Run Stage B's 01-model-staging-job-g304.yaml first."
+                exit 11
+              fi
+              exec python3 -m vllm.entrypoints.openai.api_server \
+                --model "${MODEL_LOCAL_DIR}" \
+                --served-model-name nemotron-nano-9b-v2 \
+                --host 0.0.0.0 \
+                --port "${PREFILLER_API_PORT}" \
+                --tensor-parallel-size "${TENSOR_PARALLEL_SIZE}" \
+                --max-model-len 32768 \
+                --gpu-memory-utilization 0.85 \
+                --trust-remote-code \
+                --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_buffer_size":1000000000,"kv_parallel_size":1,"kv_connector_extra_config":{"num_workers":10,"mooncake_protocol":"tcp"}}'
+          # With hostNetwork=true containerPort entries are advisory (kube
+          # does not configure portmap); we list them for documentation.
+          # The actual binds are 0.0.0.0:8010 and 0.0.0.0:8998 on the host.
+          ports:
+            - name: api
+              containerPort: 8010
+              hostPort: 8010
+              protocol: TCP
+            - name: bootstrap
+              containerPort: 8998
+              hostPort: 8998
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8010
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 300
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "4"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "4"
+          volumeMounts:
+            # Mount g304's /scratch/models read-only — model bytes are
+            # owned by the Stage B staging Job, not by us.
+            - name: model
+              mountPath: /scratch/models
+              readOnly: true
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm

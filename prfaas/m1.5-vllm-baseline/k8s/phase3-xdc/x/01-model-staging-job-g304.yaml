@@ -1,0 +1,89 @@
+# Phase 3 cross-DC — stage Kimi-Linear-48B onto g304's local /scratch.
+#
+# 49 GiB BF16, MIT license, public — no HF token required. Idempotent: skips
+# download if config.json + at least one .safetensors shard is already
+# present at the target path. Safe to re-apply.
+#
+# This Job is the cross-DC equivalent of Phase 1's
+# `02-model-staging-job-kimi.yaml` (which runs on Y / g126). They write
+# different physical paths (Y uses the `model-weights-phase1` PVC; X uses
+# g304's hostPath /scratch/models) so both can run in parallel.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-staging-kimi-linear-48b-x
+  namespace: prfaas-staged
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "X"
+    prfaas.experiment/model: "kimi-linear-48b"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: model-staging-kimi-linear-48b-x
+        prfaas.experiment/phase: "3-xdc"
+        prfaas.experiment/cluster: "X"
+        prfaas.experiment/model: "kimi-linear-48b"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      tolerations:
+        - key: voltagepark.io/cni-pending
+          operator: Exists
+          effect: NoSchedule
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      volumes:
+        - name: scratch
+          hostPath:
+            path: /scratch
+            type: Directory
+      containers:
+        - name: hf-downloader
+          image: python:3.12-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-xdc-env
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[stage-x] installing huggingface_hub + hf-transfer"
+              pip install --no-cache-dir --quiet \
+                'huggingface_hub[cli,hf_transfer]==0.27.*'
+
+              echo "[stage-x] target dir: ${MODEL_LOCAL_DIR}"
+              mkdir -p "${MODEL_LOCAL_DIR}"
+
+              if [[ -f "${MODEL_LOCAL_DIR}/config.json" ]] && \
+                 ls "${MODEL_LOCAL_DIR}"/*.safetensors >/dev/null 2>&1; then
+                echo "[stage-x] model already present, skipping download"
+                du -sh "${MODEL_LOCAL_DIR}"
+                ls "${MODEL_LOCAL_DIR}"
+                exit 0
+              fi
+
+              echo "[stage-x] downloading ${MODEL_REPO}"
+              huggingface-cli download "${MODEL_REPO}" \
+                --local-dir "${MODEL_LOCAL_DIR}" \
+                --max-workers 8
+
+              echo "[stage-x] done"
+              du -sh "${MODEL_LOCAL_DIR}"
+              ls "${MODEL_LOCAL_DIR}"
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi

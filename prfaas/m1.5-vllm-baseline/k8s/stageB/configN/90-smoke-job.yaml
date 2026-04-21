@@ -1,0 +1,49 @@
+# Config-N smoke: hit proxy-n with a chat completion, assert 200 +
+# non-empty content. Gate before launching the bench Job for Config N.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-n
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "N"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        prfaas.experiment/stage: "B"
+        prfaas.config: "N"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              echo "[smoke-n] hitting proxy-n..."
+              body='{"model":"nemotron-nano-9b-v2",
+                     "messages":[{"role":"user","content":"Say the single word: OK"}],
+                     "max_tokens":4,
+                     "temperature":0}'
+              resp=$(curl -sS -w '\n__HTTP__%{http_code}' \
+                http://proxy-n.prfaas-stageb.svc.cluster.local:8000/v1/chat/completions \
+                -H 'Content-Type: application/json' \
+                -d "$body")
+              code=$(echo "$resp" | sed -n 's/^__HTTP__//p')
+              body=$(echo "$resp" | sed '/^__HTTP__/d')
+              echo "[smoke-n] http=$code"
+              echo "[smoke-n] body=$body"
+              if [ "$code" != "200" ]; then
+                echo "[smoke-n] FAIL: non-200"
+                exit 1
+              fi
+              if ! echo "$body" | grep -qi 'content'; then
+                echo "[smoke-n] FAIL: no content field"
+                exit 2
+              fi
+              echo "[smoke-n] OK"

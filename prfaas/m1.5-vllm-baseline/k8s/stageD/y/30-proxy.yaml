@@ -1,0 +1,139 @@
+# Stage D — Y-side proxy (round-robin disagg proxy from Mooncake).
+#
+# Same `python -m mooncake.vllm_v1_proxy_server` binary as Stage A; only the
+# `--prefiller-host` differs — we point it at g304's PUBLIC IP instead of a
+# ClusterIP. The proxy:
+#   1. GET http://<PREFILLER_HOST>:<PREFILLER_API_PORT>/health   (warmup gate)
+#   2. GET http://<PREFILLER_HOST>:<PREFILLER_BOOTSTRAP_PORT>/query
+#      to discover engine_ids per dp_rank
+#   3. Per request, fires fire-and-forget at the prefiller and stream-back
+#      at the decoder, plumbing remote_bootstrap_addr+remote_engine_id in
+#      kv_transfer_params so the decoder pulls KV from g304.
+#
+# Egress goes via Cilium's default SNAT to g126's public IP. X has the
+# inbound iptables rule on 8998 (operator-applied via
+# firewall/g304-stageD-iptables.sh) and on 13000-17000 (already opened in
+# Stage 0a).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-staged
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+    app: proxy-staged
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-staged
+  template:
+    metadata:
+      labels:
+        app: proxy-staged
+        prfaas.experiment/stage: "D"
+        prfaas.config: "P"
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      volumes:
+        - name: mc-pip
+          emptyDir: {}
+      initContainers:
+        - name: install-mooncake
+          image: python:3.11-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1' \
+                fastapi uvicorn httpx
+              python3 -c "import sys; sys.path.insert(0,'/opt/mc'); from mooncake import vllm_v1_proxy_server; print('proxy module ok')"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: proxy
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-staged-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+            # Pulled separately from the ConfigMap envFrom so it's obvious in
+            # `kubectl describe` what's plumbed where. valueFrom is required
+            # by the user spec.
+            - name: PREFILLER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: prfaas-staged-env
+                  key: PREFILLER_HOST
+            - name: PREFILLER_API_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: prfaas-staged-env
+                  key: PREFILLER_API_PORT
+            - name: PREFILLER_BOOTSTRAP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: prfaas-staged-env
+                  key: PREFILLER_BOOTSTRAP_PORT
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[proxy-staged] cross-DC config:"
+              echo "  prefiller-host=${PREFILLER_HOST}"
+              echo "  prefiller-port=${PREFILLER_API_PORT}"
+              echo "  prefiller-bootstrap-port=${PREFILLER_BOOTSTRAP_PORT}"
+              echo "  decoder-host=decoder-staged-api.default.svc.cluster.local"
+              echo "  decoder-port=${DECODER_API_PORT}"
+              exec python3 -m mooncake.vllm_v1_proxy_server \
+                --host 0.0.0.0 \
+                --port "${PROXY_PORT}" \
+                --prefiller-host "${PREFILLER_HOST}" \
+                --prefiller-port "${PREFILLER_API_PORT}" \
+                --decoder-host decoder-staged-api.default.svc.cluster.local \
+                --decoder-port "${DECODER_API_PORT}"
+          ports:
+            - name: http
+              containerPort: 8001
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy-staged
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: proxy-staged
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+      protocol: TCP

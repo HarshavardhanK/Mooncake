@@ -1,0 +1,87 @@
+# Round-robin disagg proxy for Config H. Splits each request into a
+# prefill phase against prefiller-h-api and a decode phase against
+# decoder-h-api, injecting the prefiller-h-bootstrap address into the
+# kv_transfer_params so the decoder knows where to fetch KV from.
+#
+# Implementation: mooncake.vllm_v1_proxy_server, shipped in the
+# mooncake-transfer-engine wheel.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-h
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "H"
+    app.kubernetes.io/part-of: prfaas
+    app: proxy-h
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy-h
+  template:
+    metadata:
+      labels:
+        app: proxy-h
+        prfaas.experiment/stage: "B"
+        prfaas.config: "H"
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      volumes:
+        - name: mc-pip
+          emptyDir: {}
+      initContainers:
+        - name: install-mooncake
+          image: python:3.11-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1' \
+                fastapi uvicorn httpx
+              python -c "import sys; sys.path.insert(0,'/opt/mc'); from mooncake import vllm_v1_proxy_server; print('proxy module ok')"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: proxy
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-stageb-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              exec python3 -m mooncake.vllm_v1_proxy_server \
+                --host 0.0.0.0 \
+                --port "${PROXY_PORT}" \
+                --prefiller-host prefiller-h-api.prfaas-stageb.svc.cluster.local \
+                --prefiller-port "${PREFILLER_API_PORT}" \
+                --decoder-host decoder-h-api.prfaas-stageb.svc.cluster.local \
+                --decoder-port "${DECODER_API_PORT}"
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true

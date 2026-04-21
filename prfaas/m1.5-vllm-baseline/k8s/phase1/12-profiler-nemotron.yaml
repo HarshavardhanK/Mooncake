@@ -1,0 +1,175 @@
+# Phase 1 Φkv profiler for H2 = NVIDIA-Nemotron-Nano-9B-v2 (adjacent hybrid).
+# TP=4, so this Job uses only half the GPUs and could in principle co-exist
+# with another TP=4 job — but for simplicity (and to avoid cross-job NVLink
+# contention) we still apply it sequentially with the others.
+#
+# Reuses the Stage A model PVC `model-weights` IF it's still present, else
+# falls back to the Phase 1 PVC. To keep operations simple, we point this
+# job at the Phase 1 PVC and re-stage the Nemotron weights here if missing
+# (Stage A's PVC is only ~80 GiB and we don't want a 200 GiB copy operation).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-staging-nemotron-nano-9b-v2
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    prfaas.experiment/model: "nemotron-nano-9b-v2"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: model-staging-nemotron-nano-9b-v2
+        prfaas.experiment/phase: "1"
+        prfaas.experiment/model: "nemotron-nano-9b-v2"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: hf-downloader
+          image: python:3.12-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase1-env
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --quiet \
+                'huggingface_hub[cli,hf_transfer]==0.27.*'
+              mkdir -p "${H2_MODEL_LOCAL_DIR}"
+              if [[ -f "${H2_MODEL_LOCAL_DIR}/config.json" ]] && \
+                 ls "${H2_MODEL_LOCAL_DIR}"/*.safetensors >/dev/null 2>&1; then
+                echo "[stage] nemotron already present"
+                du -sh "${H2_MODEL_LOCAL_DIR}"
+                exit 0
+              fi
+              huggingface-cli download "${H2_MODEL_REPO}" \
+                --local-dir "${H2_MODEL_LOCAL_DIR}" \
+                --max-workers 8
+              du -sh "${H2_MODEL_LOCAL_DIR}"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phi-kv-profiler-nemotron-nano-9b-v2
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    prfaas.experiment/model: "nemotron-nano-9b-v2"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: phi-kv-profiler-nemotron-nano-9b-v2
+        prfaas.experiment/phase: "1"
+        prfaas.experiment/model: "nemotron-nano-9b-v2"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: profiler
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase1-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: SGLANG_TAG
+              value: "sglang-v0.5.9-cu129-amd64"
+            - name: SGLANG_FLAGS
+              value: "--disable-radix-cache --max-running-requests 1"
+            - name: HF_HOME
+              value: "/models/.cache/hf"
+            # NOTE: do NOT export an env var named `SGLANG_PORT` in this
+            # container. SGLang's `srt/utils/network.py::get_open_port` reads
+            # it and uses it for its scheduler IPC port — which then collides
+            # with the user-facing HTTP port the FastAPI server tries to bind.
+            # We pass the API port via $PRFAAS_SGLANG_API_PORT (set in the
+            # phase 1 ConfigMap) and it never reaches SGLang's env-var path.
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[run] target: ${H2_MODEL_REPO} (TP=${H2_TP_SIZE})"
+              python3 -m sglang.launch_server \
+                --model-path "${H2_MODEL_LOCAL_DIR}" \
+                --tp ${H2_TP_SIZE} \
+                --trust-remote-code \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --host 127.0.0.1 \
+                --mem-fraction-static 0.85 \
+                --max-running-requests 1 \
+                --disable-radix-cache \
+                --log-level info \
+                > /results/${H2_MODEL_SHORT}.sglang.log 2>&1 &
+              SGLANG_PID=$!
+              trap "kill -TERM ${SGLANG_PID} 2>/dev/null; wait ${SGLANG_PID} 2>/dev/null; true" EXIT
+              python3 /scripts/phi_kv_probe.py \
+                --model-dir "${H2_MODEL_LOCAL_DIR}" \
+                --model-id "${H2_MODEL_REPO}" \
+                --model-short "${H2_MODEL_SHORT}" \
+                --tp-size "${H2_TP_SIZE}" \
+                --base-url "http://127.0.0.1:${PRFAAS_SGLANG_API_PORT}" \
+                --ctx-lens "${CTX_LENS}" \
+                --warmup "${WARMUP_REQUESTS}" \
+                --timed "${TIMED_REQUESTS}" \
+                --output-len "${OUTPUT_LEN}" \
+                --output "/results/${H2_MODEL_SHORT}.jsonl"
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+              nvidia.com/gpu: "4"
+            limits:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "4"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+            - name: results
+              mountPath: /results
+            - name: probe-script
+              mountPath: /scripts
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+        - name: results
+          persistentVolumeClaim:
+            claimName: prfaas-phase1-results
+        - name: probe-script
+          configMap:
+            name: prfaas-phase1-probe-script
+            defaultMode: 0755
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

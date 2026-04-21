@@ -1,0 +1,4 @@
+[smoke] model=qwen2.5-7b-instruct  hitting proxy...
+[smoke] http=200
+[smoke] body={"id":"chatcmpl-340a47f6-df1e-4910-bb71-571b65a08b78","object":"chat.completion","created":1776672747,"model":"qwen2.5-7b-instruct","choices":[{"index":0,"message":{"role":"assistant","content":"OK","refusal":null,"annotations":null,"audio":null,"function_call":null,"tool_calls":[],"reasoning":null},"logprobs":null,"finish_reason":"stop","stop_reason":null,"token_ids":null}],"service_tier":null,"system_fingerprint":null,"usage":{"prompt_tokens":35,"total_tokens":37,"completion_tokens":2,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"kv_transfer_params":null}
+[smoke] OK

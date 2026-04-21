@@ -1,0 +1,74 @@
+# Stage Phase 1's D1 model: Qwen/Qwen2.5-72B-Instruct (dense control).
+# 145 GiB BF16. Public, no token required. ~1 hour cold-cache download.
+#
+# We pick Qwen2.5-72B-Instruct (not Qwen3-235B) deliberately: it's the
+# largest dense model that fits a single 8-H100 box at BF16 with no
+# quantisation, which keeps the Φkv measurement directly comparable to
+# the paper's Llama-class dense numbers without introducing FP8 confounds.
+# When the X-cluster (g304+g307) is K8s-GPU-ready, we'll add a parallel
+# Job for Qwen3-235B-A22B at FP8 — that one IS in the paper's set.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-staging-qwen2-5-72b
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    prfaas.experiment/model: "qwen2.5-72b-instruct"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: model-staging-qwen2-5-72b
+        prfaas.experiment/phase: "1"
+        prfaas.experiment/model: "qwen2.5-72b-instruct"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: OnFailure
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: hf-downloader
+          image: python:3.12-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase1-env
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[stage] installing huggingface_hub + hf-transfer"
+              pip install --no-cache-dir --quiet \
+                'huggingface_hub[cli,hf_transfer]==0.27.*'
+              echo "[stage] target dir: ${D1_MODEL_LOCAL_DIR}"
+              mkdir -p "${D1_MODEL_LOCAL_DIR}"
+              if [[ -f "${D1_MODEL_LOCAL_DIR}/config.json" ]] && \
+                 ls "${D1_MODEL_LOCAL_DIR}"/*.safetensors >/dev/null 2>&1; then
+                echo "[stage] model already present, skipping download"
+                du -sh "${D1_MODEL_LOCAL_DIR}"
+                ls "${D1_MODEL_LOCAL_DIR}"
+                exit 0
+              fi
+              echo "[stage] downloading ${D1_MODEL_REPO} (paper-faithful dense control D1)"
+              huggingface-cli download "${D1_MODEL_REPO}" \
+                --local-dir "${D1_MODEL_LOCAL_DIR}" \
+                --max-workers 8
+              echo "[stage] done"
+              du -sh "${D1_MODEL_LOCAL_DIR}"
+              ls "${D1_MODEL_LOCAL_DIR}" | head -20
+          volumeMounts:
+            - name: model
+              mountPath: /models
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1

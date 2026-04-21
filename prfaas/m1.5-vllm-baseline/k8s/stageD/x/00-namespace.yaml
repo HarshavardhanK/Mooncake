@@ -1,0 +1,48 @@
+# Stage D — X cluster (vpcloud-slurm-v2-admin, iad1).
+# We have cluster-admin on X, so we create our own namespace `prfaas-staged`
+# rather than squat in `default`. ConfigMap exposes the same env vars Stage A
+# uses on Y, plus the Stage D-specific cross-DC knobs.
+#
+# Lifecycle (cleanup):
+#   kubectl --context vpcloud-slurm-v2-admin -n prfaas-staged \
+#     delete deploy,svc,job,cm,ns -l prfaas.experiment/stage=D
+# (or `kubectl delete ns prfaas-staged` to nuke everything in one go)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prfaas-staged
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-staged-env
+  namespace: prfaas-staged
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+data:
+  PRIMARY_MODEL: "nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+  # On X we cannot use a dynamic PVC — model bytes live on each node's
+  # /scratch RAID0 (14 TB), pre-staged by stageB/01-model-staging-job-g304.yaml.
+  MODEL_LOCAL_DIR: "/scratch/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2"
+  TENSOR_PARALLEL_SIZE: "4"
+  PREFILLER_API_PORT: "8010"
+  VLLM_LOGGING_LEVEL: "INFO"
+  VLLM_USE_V1: "1"
+  # Mooncake bootstrap port — listens on the prefiller's host IP because
+  # the pod uses hostNetwork: true.
+  VLLM_MOONCAKE_BOOTSTRAP_PORT: "8998"
+  # Decoder may abort long requests; give the prefiller plenty of slack
+  # before it frees the KV blocks.
+  VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT: "480"
+  HF_HUB_DOWNLOAD_TIMEOUT: "300"
+  # Mandatory cross-DC TCP knobs — Stage 0a proved these are non-negotiable
+  # (without conn-pool=1 goodput collapses 4× to ~3.6 Gbps; legacy RPC
+  # binding keeps the RPC port inside the iptables-allowed 13000-17000 range).
+  MC_TCP_ENABLE_CONNECTION_POOL: "1"
+  MC_LEGACY_RPC_PORT_BINDING: "1"

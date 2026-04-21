@@ -8,7 +8,7 @@
 #   build_dir = ./build (override or pass as $1)
 #
 # Writes:
-#   prfaas/m1-tcp-bench/results/smoke.csv
+#   prfaas/results/m1-tcp-bench/smoke.csv
 #
 # Cells run (3 total): single block_size + threads, sweep slice/conn-pool to
 # prove env-var plumbing reaches the bench.
@@ -33,9 +33,10 @@ done
 export PATH="${build_dir}/mooncake-transfer-engine/example:${build_dir}/prfaas/m1-tcp-bench/bench:${PATH}"
 export LD_LIBRARY_PATH="${build_dir}/mooncake-transfer-engine/src:${build_dir}/mooncake-asio:${LD_LIBRARY_PATH:-}"
 
-results_csv="${m1_root}/results/smoke.csv"
-target_log="${m1_root}/results/smoke.target.log"
-mkdir -p "${m1_root}/results"
+results_root="${repo_root}/prfaas/results/m1-tcp-bench"
+results_csv="${results_root}/smoke.csv"
+target_log="${results_root}/smoke.target.log"
+mkdir -p "${results_root}"
 : > "${target_log}"
 
 echo "[smoke] starting target on loopback"

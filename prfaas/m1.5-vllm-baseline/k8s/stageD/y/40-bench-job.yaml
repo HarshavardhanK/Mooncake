@@ -1,0 +1,147 @@
+# Stage D — concurrency sweep against the cross-DC proxy.
+#
+# Same pattern as Stage B's bench Job: drive vllm benchmark_serving against
+# the proxy, sweep concurrency, dump per-cell JSON to a hostPath dir on
+# g126 that the operator can `kubectl cp` back (or just SSH+rsync).
+#
+# Output layout (on g126):
+#   /scratch/prfaas/results/stageD/<MODEL_TAG>/configP/<TIME_TAG>/<workload>/concurrency=<N>/
+#     - serving.json            (raw benchmark_serving.py output)
+#     - meta.json               (cell metadata: timestamp, RTT-at-bench, etc.)
+#
+# After the bench finishes:
+#   kubectl --context aln1-beta-harsha-g126-beta -n default \
+#     cp <bench-pod>:/results /tmp/stageD-results/
+# Then run scripts/extract_lambda_max.py against the local copy.
+#
+# Three-time-of-day protocol: re-apply this Job at peak-US, EU-business,
+# off-peak with TIME_TAG overridden each time. Delete the Job between runs:
+#   kubectl -n default delete job bench-staged
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bench-staged
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        prfaas.experiment/stage: "D"
+        prfaas.config: "P"
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      volumes:
+        # hostPath sink so results survive pod deletion. /scratch on g126
+        # is empty and large; if the operator hasn't created it yet, the
+        # bench pod will mkdir it (DirectoryOrCreate).
+        - name: results
+          hostPath:
+            path: /scratch/prfaas/results
+            type: DirectoryOrCreate
+      containers:
+        - name: bench
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-staged-env
+          env:
+            # Override these per run via `kubectl set env`:
+            #   kubectl -n default set env job/bench-staged \
+            #     TIME_TAG=peak_us WORKLOADS="long_context"
+            - name: WORKLOADS
+              value: "chat_balanced long_context rag_summary code_complete"
+            - name: CONCURRENCIES
+              value: "1 4 16 32 64 128 192"
+            - name: TIME_TAG
+              value: "smoke_run"
+            - name: MODEL_TAG
+              value: "nemotron-nano-9b-v2"
+            - name: PROXY_URL
+              value: "http://proxy-staged.default.svc.cluster.local:8001"
+            - name: SERVED_MODEL_NAME
+              value: "nemotron-nano-9b-v2"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[bench-staged] installing vllm benchmark deps"
+              pip install --no-cache-dir --quiet \
+                'vllm==0.19.1' 'aiohttp' 'datasets' 'numpy' 'pandas'
+              # benchmark_serving.py ships in vllm; locate it.
+              BENCH=$(python3 -c 'import vllm,os,glob; p=os.path.dirname(vllm.__file__); cands=glob.glob(p+"/**/benchmark_serving.py",recursive=True); print(cands[0] if cands else "")')
+              if [[ -z "${BENCH}" ]]; then
+                echo "[bench-staged] ERROR: benchmark_serving.py not found in vllm install"
+                exit 1
+              fi
+              echo "[bench-staged] using ${BENCH}"
+
+              base="/results/stageD/${MODEL_TAG}/configP/${TIME_TAG}"
+              mkdir -p "${base}"
+
+              # Workload table — input/output token counts per workload name.
+              # Mirrors EXPERIMENT_PLAN §6.1.
+              declare -A IN_LEN=(
+                [chat_balanced]=1024
+                [long_context]=16384
+                [rag_summary]=8192
+                [code_complete]=4096
+              )
+              declare -A OUT_LEN=(
+                [chat_balanced]=256
+                [long_context]=256
+                [rag_summary]=512
+                [code_complete]=32
+              )
+
+              for w in ${WORKLOADS}; do
+                il=${IN_LEN[$w]:-1024}
+                ol=${OUT_LEN[$w]:-256}
+                for c in ${CONCURRENCIES}; do
+                  outdir="${base}/${w}/concurrency=${c}"
+                  mkdir -p "${outdir}"
+                  echo "[bench-staged] cell: workload=${w} input=${il} output=${ol} conc=${c}"
+                  python3 "${BENCH}" \
+                    --backend openai-chat \
+                    --base-url "${PROXY_URL}" \
+                    --endpoint /v1/chat/completions \
+                    --model "${SERVED_MODEL_NAME}" \
+                    --dataset-name random \
+                    --random-input-len "${il}" \
+                    --random-output-len "${ol}" \
+                    --num-prompts $(( c * 4 )) \
+                    --max-concurrency "${c}" \
+                    --percentile-metrics ttft,tpot,itl,e2el \
+                    --save-result \
+                    --result-dir "${outdir}" \
+                    --result-filename serving.json \
+                    || echo "[bench-staged] cell failed but continuing: ${w} c=${c}"
+                  jq -n \
+                    --arg w "${w}" --arg c "${c}" \
+                    --arg t "${TIME_TAG}" \
+                    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                    '{workload:$w, concurrency:($c|tonumber), time_tag:$t, wall_clock_iso:$ts}' \
+                    > "${outdir}/meta.json" || true
+                done
+              done
+
+              echo "[bench-staged] DONE. Results under /scratch/prfaas/results/stageD/${MODEL_TAG}/configP/${TIME_TAG}/"
+              echo "[bench-staged] cp them off the node with:"
+              echo "  kubectl -n default cp <pod>:/results/stageD /tmp/"
+              echo "or rsync from g126: ubuntu@147.185.40.126:/scratch/prfaas/results/stageD/"
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "8"
+              memory: 16Gi
+          volumeMounts:
+            - name: results
+              mountPath: /results

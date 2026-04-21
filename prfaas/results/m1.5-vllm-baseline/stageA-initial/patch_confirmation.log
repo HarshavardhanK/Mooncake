@@ -1,0 +1,15 @@
+=== prefiller pod: prefiller-547d8c869b-5dp7v ===
+[mc-patch] writing patch script
+[mc-patch] vllm_dir=/usr/local/lib/python3.12/dist-packages/vllm
+[mc-patch] target=/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] applied SupportsHMA to MooncakeConnector at /usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] sanity OK: MooncakeConnector is subclass of SupportsHMA
+[mc-patch] done
+
+=== decoder pod: decoder-5fd59678c7-h4pvn ===
+[mc-patch] writing patch script
+[mc-patch] vllm_dir=/usr/local/lib/python3.12/dist-packages/vllm
+[mc-patch] target=/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] applied SupportsHMA to MooncakeConnector at /usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+[mc-patch] sanity OK: MooncakeConnector is subclass of SupportsHMA
+[mc-patch] done

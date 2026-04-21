@@ -1,0 +1,81 @@
+# Round-robin proxy that splits incoming OpenAI requests into a
+# prefill phase against the prefiller and a decode phase against the
+# decoder. Implementation: mooncake.vllm_v1_proxy_server, shipped in
+# the mooncake-transfer-engine wheel.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+    app: proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxy
+  template:
+    metadata:
+      labels:
+        app: proxy
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      volumes:
+        - name: mc-pip
+          emptyDir: {}
+      initContainers:
+        - name: install-mooncake
+          image: python:3.11-slim
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              pip install --no-cache-dir --target=/opt/mc \
+                'mooncake-transfer-engine==0.3.10.post1' \
+                fastapi uvicorn httpx
+              python -c "import sys; sys.path.insert(0,'/opt/mc'); from mooncake import vllm_v1_proxy_server; print('proxy module ok')"
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+      containers:
+        - name: proxy
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-stagea-env
+          env:
+            - name: PYTHONPATH
+              value: "/opt/mc"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              exec python -m mooncake.vllm_v1_proxy_server \
+                --host 0.0.0.0 \
+                --port "${PROXY_PORT}" \
+                --prefiller-host prefiller-api.default.svc.cluster.local \
+                --prefiller-port "${PREFILLER_API_PORT}" \
+                --decoder-host decoder-api.default.svc.cluster.local \
+                --decoder-port "${DECODER_API_PORT}"
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          volumeMounts:
+            - name: mc-pip
+              mountPath: /opt/mc
+              readOnly: true

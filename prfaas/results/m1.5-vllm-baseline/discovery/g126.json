@@ -1,0 +1,171 @@
+{
+  "node": "g126/y",
+  "role": "single-node decode cluster Y",
+  "public_ip": "147.185.40.126",
+  "ssh_ok": true,
+  "discovery_timestamp_utc": "2026-04-19T20:40:00Z",
+
+  "os": {
+    "hostname": "g126",
+    "kernel": "Linux 5.15.0-176-generic #186-Ubuntu SMP Fri Mar 13 11:01:42 UTC 2026 x86_64",
+    "distro": "Ubuntu 22.04.5 LTS (Jammy Jellyfish)",
+    "user": "ubuntu",
+    "uid": 1000,
+    "groups": "ubuntu,adm,dialout,cdrom,floppy,sudo,audio,dip,video,plugdev,netdev,lxd",
+    "sudo_nopasswd": true
+  },
+
+  "cpu": {
+    "model": "Intel(R) Xeon(R) Platinum 8470",
+    "logical_cpus": 208,
+    "sockets_inferred": 2
+  },
+
+  "ram_gb": 1007,
+  "swap_gb": 0,
+
+  "numa_nodes": 8,
+  "numa_layout": {
+    "node0": "0-12,104-116",
+    "node1": "13-25,117-129",
+    "node2": "26-38,130-142",
+    "node3": "39-51,143-155",
+    "node4": "52-64,156-168",
+    "node5": "65-77,169-181",
+    "node6": "78-90,182-194",
+    "node7": "91-103,195-207"
+  },
+
+  "gpus": {
+    "count": 8,
+    "model": "NVIDIA H100 80GB HBM3",
+    "memory_total_mib": 81559,
+    "driver_version": "570.211.01",
+    "compute_capability": "9.0",
+    "interconnect": "NV18 full mesh (8x NVLink between every pair)",
+    "topology_summary": "All 8 H100s NV18-connected; 12 mlx5 NICs PIX-attached to specific GPUs (NIC0-2->GPU0, NIC3->GPU1, NIC4->GPU2, NIC5->GPU3, NIC6-8->GPU4, NIC9->GPU5, NIC10->GPU6, NIC11->GPU7)"
+  },
+
+  "cuda_version": null,
+  "cuda_notes": "No /usr/local/cuda*, no nvcc. Only NVIDIA driver+kernel module installed (570.211.01). CUDA toolkit not present.",
+
+  "ib": {
+    "ibstat_available": false,
+    "rdma_cli_available": true,
+    "interfaces_present": ["mlx5_0","mlx5_1","mlx5_2","mlx5_3","mlx5_4","mlx5_5","mlx5_6","mlx5_7","mlx5_8","mlx5_9","mlx5_10","mlx5_11"],
+    "active_links": [
+      {"device": "mlx5_1", "port": 1, "state": "ACTIVE", "physical_state": "LINK_UP", "netdev": "enp27s0f0np0"}
+    ],
+    "down_links": ["mlx5_0","mlx5_2","mlx5_3","mlx5_4","mlx5_5","mlx5_6","mlx5_7","mlx5_8","mlx5_9","mlx5_10","mlx5_11"],
+    "notes": "Only mlx5_1 is bound to a UP netdev (enp27s0f0np0, the management/data path). The other 11 mlx5 ports are DOWN — likely RoCE NICs intended for inter-GPU traffic but not cabled/configured on this node. infiniband-diags (ibstat) is NOT installed."
+  },
+
+  "network": {
+    "primary_iface": "enp27s0f0np0",
+    "primary_ip": "10.15.18.105/29",
+    "gateway": "10.15.18.110",
+    "interfaces_up": ["lo","eno8303","enp27s0f0np0","cilium_net","cilium_host","cilium_vxlan","lxc_health","plus ~25 lxc* veth pairs"],
+    "k8s_overlay": {"cilium_host": "172.28.0.2/32", "subnet": "172.28.0.0/24"},
+    "default_route": "default via 10.15.18.110 dev enp27s0f0np0",
+    "route_to_x_gateway_159.26.81.50": "via 10.15.18.110 dev enp27s0f0np0 src 10.15.18.105",
+    "route_to_x_internal_159.26.81.53": "via 10.15.18.110 dev enp27s0f0np0 src 10.15.18.105",
+    "route_notes": "BOTH X destinations egress over the same enp27s0f0np0 default route — single uplink to the cross-DC path.",
+    "is_kubernetes_worker": true,
+    "k8s_evidence": "kubelet on 127.0.0.1:10248, cilium agents (9890/9891/9879/9878), nvidia-device-plugin pod, node-drainer pod, fault-quarantine pod, and 3 mongodb pods running"
+  },
+
+  "firewall": {
+    "iptables_input_policy": "ACCEPT",
+    "iptables_input_chains": ["CILIUM_INPUT","KUBE-FIREWALL"],
+    "ufw": "inactive",
+    "firewall_cmd": "not installed",
+    "notes": "Host firewall is open; cilium+kube-proxy chains gate K8s pod traffic but the host itself accepts INPUT by default."
+  },
+
+  "storage": {
+    "root_fs": {"device": "/dev/nvme0n1p2", "total": "439G", "used": "29G", "avail": "388G"},
+    "shm": {"size": "504G"},
+    "raw_nvme_unmounted": [
+      {"name": "nvme1n1", "size": "2.9T"},
+      {"name": "nvme2n1", "size": "2.9T"},
+      {"name": "nvme3n1", "size": "2.9T"},
+      {"name": "nvme4n1", "size": "2.9T"},
+      {"name": "nvme5n1", "size": "2.9T"},
+      {"name": "nvme6n1", "size": "2.9T"}
+    ],
+    "raw_nvme_total_tb": 17.4,
+    "mnt": "exists, empty",
+    "scratch": "missing",
+    "data": "missing",
+    "home_ubuntu": "fresh (only dotfiles, no work). Lives on / (388G free).",
+    "candidate_model_dir": "/home/ubuntu",
+    "candidate_model_dir_avail_gb": 388,
+    "candidate_model_dir_notes": "Plenty of room for a 70B-scale model on the root FS. Six 2.9 TB NVMes are present but UNFORMATTED/UNMOUNTED — would require sudo (available) to format+mount if more space is needed."
+  },
+
+  "software": {
+    "python3": "3.10.12",
+    "pip": "22.0.2",
+    "gcc": "11.4.0",
+    "g++": "11.4.0",
+    "cmake": null,
+    "etcd": null,
+    "etcdctl": null,
+    "docker": null,
+    "vllm": null,
+    "mooncake_libs": null,
+    "jemalloc": null,
+    "notes": "Bare GPU worker — none of the AI/ML stack (vLLM, Mooncake, etcd, CUDA toolkit, jemalloc, cmake, docker) is installed. Will need a build/install pass before vLLM can run."
+  },
+
+  "outbound": {
+    "x_gateway_159.26.81.50": {
+      "nc_22": "succeeded",
+      "nc_443": "refused (port closed, host reachable)",
+      "nc_13000": "refused (port closed, host reachable)",
+      "ping_count": 30,
+      "ping_loss_pct": 0,
+      "ping_rtt_min_ms": 29.569,
+      "ping_rtt_avg_ms": 29.714,
+      "ping_rtt_max_ms": 29.903,
+      "ping_rtt_mdev_ms": 0.088,
+      "traceroute": "not installed"
+    },
+    "x_internal_159.26.81.53": {
+      "nc_22": "succeeded",
+      "ping_count": 5,
+      "ping_loss_pct": 0,
+      "ping_rtt_min_ms": 29.649,
+      "ping_rtt_avg_ms": 29.756,
+      "ping_rtt_max_ms": 29.877,
+      "ping_rtt_mdev_ms": 0.092
+    },
+    "summary": "Cross-DC RTT ~29.7 ms with sub-0.1 ms jitter to both X-gateway and X-internal. SSH (22) reachable on both; ports 443/13000 on X-gateway are reachable at L3 but no listener — application services will need to be brought up on X side."
+  },
+
+  "existing_repos": {
+    "Mooncake": "absent",
+    "mooncake": "absent",
+    "prfaas": "absent",
+    "huggingface_cache": "absent",
+    "huggingface_cache_size": null,
+    "notes": "Completely fresh node — no prior work, no HF cache, no Mooncake checkout."
+  },
+
+  "blockers": [
+    "No CUDA toolkit (only driver) — vLLM build/install will need it (or use a prebuilt wheel matching driver 570.211.01 / CUDA 12.x).",
+    "No vLLM, no Mooncake binaries, no etcd, no cmake, no docker — full software install required.",
+    "No infiniband-diags (ibstat) — minor; rdma cli works.",
+    "Only mlx5_1 (ethernet on enp27s0f0np0) is up; the other 11 mlx5 ports are DOWN, so high-speed RoCE/IB transports between local GPUs and any peer are unavailable today. Single 25/100GbE-class uplink for ALL traffic including cross-DC to X.",
+    "No traceroute installed (won't block, just less diagnostic info).",
+    "Six 2.9 TB NVMes are raw/unmounted — usable only after formatting (sudo available)."
+  ],
+  "non_blockers": [
+    "sudo NOPASSWD available",
+    "388 GB free on root FS — enough for typical 70B model weights",
+    "504 GB tmpfs /dev/shm",
+    "Cross-DC RTT to X is excellent (29.7 ms ± 0.09)",
+    "Host firewall open (iptables INPUT ACCEPT)",
+    "8x H100 80GB with full NV18 NVLink mesh"
+  ]
+}

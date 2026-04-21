@@ -1,0 +1,54 @@
+Collecting mooncake-transfer-engine==0.3.10.post1
+  Downloading mooncake_transfer_engine-0.3.10.post1-cp312-cp312-manylinux_2_35_x86_64.whl.metadata (692 bytes)
+Collecting aiohttp (from mooncake-transfer-engine==0.3.10.post1)
+  Downloading aiohttp-3.13.5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+Collecting requests (from mooncake-transfer-engine==0.3.10.post1)
+  Downloading requests-2.33.1-py3-none-any.whl.metadata (4.8 kB)
+Collecting aiohappyeyeballs>=2.5.0 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+Collecting aiosignal>=1.4.0 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+Collecting attrs>=17.3.0 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting frozenlist>=1.1.1 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+Collecting multidict<7.0,>=4.5 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading multidict-6.7.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+Collecting propcache>=0.2.0 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading propcache-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (13 kB)
+Collecting yarl<2.0,>=1.17.0 (from aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading yarl-1.23.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+Collecting charset_normalizer<4,>=2 (from requests->mooncake-transfer-engine==0.3.10.post1)
+  Downloading charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+Collecting idna<4,>=2.5 (from requests->mooncake-transfer-engine==0.3.10.post1)
+  Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+Collecting urllib3<3,>=1.26 (from requests->mooncake-transfer-engine==0.3.10.post1)
+  Downloading urllib3-2.6.3-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests->mooncake-transfer-engine==0.3.10.post1)
+  Downloading certifi-2026.2.25-py3-none-any.whl.metadata (2.5 kB)
+Collecting typing-extensions>=4.2 (from aiosignal>=1.4.0->aiohttp->mooncake-transfer-engine==0.3.10.post1)
+  Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Downloading mooncake_transfer_engine-0.3.10.post1-cp312-cp312-manylinux_2_35_x86_64.whl (41.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 41.8/41.8 MB 200.7 MB/s eta 0:00:00
+Downloading aiohttp-3.13.5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 554.3 MB/s eta 0:00:00
+Downloading requests-2.33.1-py3-none-any.whl (64 kB)
+Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+Downloading certifi-2026.2.25-py3-none-any.whl (153 kB)
+Downloading charset_normalizer-3.4.7-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (216 kB)
+Downloading frozenlist-1.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (242 kB)
+Downloading idna-3.11-py3-none-any.whl (71 kB)
+Downloading multidict-6.7.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (256 kB)
+Downloading propcache-0.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (221 kB)
+Downloading urllib3-2.6.3-py3-none-any.whl (131 kB)
+Downloading yarl-1.23.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (100 kB)
+Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Installing collected packages: urllib3, typing-extensions, propcache, multidict, idna, frozenlist, charset_normalizer, certifi, attrs, aiohappyeyeballs, yarl, requests, aiosignal, aiohttp, mooncake-transfer-engine
+Successfully installed aiohappyeyeballs-2.6.1 aiohttp-3.13.5 aiosignal-1.4.0 attrs-26.1.0 certifi-2026.2.25 charset_normalizer-3.4.7 frozenlist-1.8.0 idna-3.11 mooncake-transfer-engine-0.3.10.post1 multidict-6.7.1 propcache-0.4.1 requests-2.33.1 typing-extensions-4.15.0 urllib3-2.6.3 yarl-1.23.0
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+
+[notice] A new release of pip is available: 25.0.1 -> 26.0.1
+[notice] To update, run: pip install --upgrade pip
+mooncake /opt/mc/mooncake/__init__.py

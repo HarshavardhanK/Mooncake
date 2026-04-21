@@ -1,0 +1,28 @@
+# Phase 1 needs a bigger PVC than Stage A's 80 GiB:
+#   Kimi-Linear-48B (BF16)  ≈  49 GiB
+#   Nemotron-Nano-9B-v2     ≈  19 GiB (already staged from Stage A — re-used,
+#                                 NOT re-downloaded; mounted RWO from same
+#                                 node so the layout is preserved)
+#   Qwen2.5-72B-Instruct    ≈ 145 GiB
+#   Qwen2.5-7B-Instruct     ≈  15 GiB (existing from Stage A engineering smoke)
+#   ---- total                ≈ 230 GiB
+# Bumped to 400 GiB to give headroom for a fourth model later (e.g. Kimi-Linear-Base
+# for an instruct-vs-base sanity check) and HF cache temp files during download.
+#
+# RWO is fine because all Phase 1 pods are pinned to g126 via nodeSelector;
+# K8s ≥ 1.22 lets multiple pods on the same node share an RWO local-path PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-weights-phase1
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 400Gi

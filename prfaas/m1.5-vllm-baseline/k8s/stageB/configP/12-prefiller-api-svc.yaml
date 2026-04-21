@@ -1,0 +1,21 @@
+# Front-door OpenAI HTTP for the Config-P prefiller; consumed by proxy-p
+# (which lives on g307 alongside the decoder). Cross-node ClusterIP, same
+# Cilium east-west path as the bootstrap Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-p-api
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: prefiller-p
+  ports:
+    - name: http
+      port: 8010
+      targetPort: api
+      protocol: TCP

@@ -1,0 +1,48 @@
+# Stage D — Y cluster (aln1-beta-harsha-g126-beta, dfw1-beta).
+# Lives in `default` because Y's mks:customer RoleBinding only grants us
+# workload CRUD inside `default` (verified for Stage A; same constraint).
+#
+# This ConfigMap is the *only* place that hard-codes the cross-DC endpoint.
+# The Stage A ConfigMap (`prfaas-stagea-env`) points the proxy at
+# `prefiller-api.default.svc.cluster.local`; we do not override it. When the
+# operator runs Stage D's Config H comparison, they re-use the Stage A
+# proxy + decoder + prefiller (all local on g126) untouched.
+#
+# Lifecycle (cleanup):
+#   kubectl --context aln1-beta-harsha-g126-beta -n default \
+#     delete deploy,svc,job,cm -l prfaas.experiment/stage=D
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-staged-env
+  namespace: default
+  labels:
+    prfaas.experiment/stage: "D"
+    prfaas.config: "P"
+    app.kubernetes.io/part-of: prfaas
+data:
+  PRIMARY_MODEL: "nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+  # Reuse the Stage A model PVC mount path. Both the Stage A decoder and the
+  # Stage D decoder will mount the same `model-weights` PVC at /models.
+  MODEL_LOCAL_DIR: "/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2"
+  TENSOR_PARALLEL_SIZE: "4"
+  # Stage D-specific port assignments. Distinct from Stage A so the two can
+  # coexist on g126 (Stage A occupies 8010/8020/8000; Stage D uses 8021/8001).
+  DECODER_API_PORT: "8021"
+  PROXY_PORT: "8001"
+  VLLM_LOGGING_LEVEL: "INFO"
+  VLLM_USE_V1: "1"
+  # Bootstrap port the X-side prefiller listens on (same on the wire because
+  # X uses hostNetwork=true; the value here is what the proxy will dial).
+  VLLM_MOONCAKE_BOOTSTRAP_PORT: "8998"
+  VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT: "480"
+  HF_HUB_DOWNLOAD_TIMEOUT: "300"
+  # Mandatory cross-DC TCP knobs (see Stage 0a SUMMARY.md, mandatory env).
+  MC_TCP_ENABLE_CONNECTION_POOL: "1"
+  MC_LEGACY_RPC_PORT_BINDING: "1"
+  # ===== CROSS-DC ENDPOINT (the bit that makes Stage D "Stage D") =====
+  # g304's public IP. The proxy and decoder both reach the prefiller through
+  # this address, NOT through a ClusterIP Service.
+  PREFILLER_HOST: "159.26.81.50"
+  PREFILLER_API_PORT: "8010"
+  PREFILLER_BOOTSTRAP_PORT: "8998"

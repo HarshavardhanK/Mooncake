@@ -1,0 +1,20 @@
+# Headless ClusterIP for the Mooncake bootstrap port (8998).
+# Decoder dials prefiller-bootstrap.default.svc.cluster.local:8998
+# during the kv_consumer handshake.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefiller-bootstrap
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: prefiller
+  ports:
+    - name: bootstrap
+      port: 8998
+      targetPort: bootstrap
+      protocol: TCP

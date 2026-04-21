@@ -26,8 +26,10 @@ profile="${1:?usage: run_matrix.sh <profile>}"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 m1_root="$(cd "${here}/.." && pwd)"
-results_csv="${m1_root}/results/${profile}.csv"
-mkdir -p "${m1_root}/results"
+repo_root="$(cd "${m1_root}/../.." && pwd)"
+results_root="${repo_root}/prfaas/results/m1-tcp-bench"
+results_csv="${results_root}/${profile}.csv"
+mkdir -p "${results_root}"
 
 mode="${MODE:-compose}"
 
@@ -51,7 +53,7 @@ case "$mode" in
       CLEANUP_CMDS+=("${init_exec[*]} bash -lc 'tc qdisc del dev \$(ip -o -4 addr show | awk \"\\\$2!=\\\"lo\\\"{print \\\$2; exit}\") root 2>/dev/null || true'")
     fi
 
-    target_log="${m1_root}/results/${profile}.target.log"
+    target_log="${results_root}/${profile}.target.log"
     : > "${target_log}"
     "${target_exec[@]}" bash -lc "/work/scripts/run_target.sh" >"${target_log}" 2>&1 &
     target_local_pid=$!

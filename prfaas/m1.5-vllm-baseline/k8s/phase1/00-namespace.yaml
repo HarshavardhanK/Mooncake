@@ -1,0 +1,49 @@
+# Phase 1 — Φkv replication (paper-faithful, see prfaas/docs/10-paper/PHASE1_PHIKV_PLAN.md)
+#
+# Same RBAC reality as Stage A: Y cluster's `mks:customer` only RoleBinds in
+# the `default` namespace, so every Phase 1 object lives there too. Group
+# label is prfaas.experiment/phase=1 so we can clean up with:
+#   kubectl -n default delete deploy,svc,job,pvc,cm \
+#     -l prfaas.experiment/phase=1
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-phase1-env
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    app.kubernetes.io/part-of: prfaas
+data:
+  # ---- Paper's primary hybrid that fits one 8-H100 box (H1 in PHASE1_PHIKV_PLAN §2)
+  H1_MODEL_REPO: "moonshotai/Kimi-Linear-48B-A3B-Instruct"
+  H1_MODEL_LOCAL_DIR: "/models/moonshotai_Kimi-Linear-48B-A3B-Instruct"
+  H1_MODEL_SHORT: "kimi-linear-48b"
+  H1_TP_SIZE: "8"
+  # Adjacent hybrid we already have on disk from Stage A (H2)
+  H2_MODEL_REPO: "nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+  H2_MODEL_LOCAL_DIR: "/models/nvidia_NVIDIA-Nemotron-Nano-9B-v2"
+  H2_MODEL_SHORT: "nemotron-nano-9b-v2"
+  H2_TP_SIZE: "4"
+  # Paper-faithful dense control we can fit on g126 (D1)
+  D1_MODEL_REPO: "Qwen/Qwen2.5-72B-Instruct"
+  D1_MODEL_LOCAL_DIR: "/models/Qwen_Qwen2.5-72B-Instruct"
+  D1_MODEL_SHORT: "qwen2.5-72b-instruct"
+  D1_TP_SIZE: "8"
+  # ---- Sweep config (matches paper §4 / Table 6)
+  CTX_LENS: "1024,2048,4096,8192,16384,32768,65536,131072"
+  WARMUP_REQUESTS: "5"
+  TIMED_REQUESTS: "20"
+  CONCURRENCY: "1"
+  OUTPUT_LEN: "1"
+  # ---- Engine
+  SGLANG_IMAGE: "lmsysorg/sglang:v0.5.9-cu129-amd64"
+  # CRITICAL: do NOT name this `SGLANG_PORT`. SGLang's own
+  # `srt/utils/network.py::get_open_port()` reads `os.getenv("SGLANG_PORT")`
+  # and uses it to allocate the scheduler's internal IPC port BEFORE uvicorn
+  # binds the user-facing HTTP port. The two collide and uvicorn dies with
+  # "[Errno 98] address already in use". Use a project-namespaced var instead
+  # and pass its value to `--port` explicitly.
+  PRFAAS_SGLANG_API_PORT: "8001"
+  HF_HUB_DOWNLOAD_TIMEOUT: "600"
+  HF_HUB_ENABLE_HF_TRANSFER: "1"
+  TRANSFORMERS_OFFLINE: "0"

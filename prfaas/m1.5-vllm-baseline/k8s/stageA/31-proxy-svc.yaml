@@ -1,0 +1,19 @@
+# Front-door for the proxy. ClusterIP; we reach it from outside via
+#   kubectl -n prfaas-stagea port-forward svc/proxy 8000:8000
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxy
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: proxy
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

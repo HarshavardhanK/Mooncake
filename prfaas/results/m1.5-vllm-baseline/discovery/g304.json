@@ -1,0 +1,148 @@
+{
+  "node": "g304",
+  "role": "x_gateway",
+  "public_ip": "159.26.81.50",
+  "ssh_ok": true,
+  "ssh_user": "vpsupport",
+  "ssh_command": "sshv vpsupport@159.26.81.50",
+  "discovered_at_utc": "2026-04-19",
+  "os": {
+    "hostname": "g304",
+    "fqdn": "g304.iad1.voltagepark.net",
+    "kernel": "Linux 6.8.0-100-generic #100-Ubuntu SMP PREEMPT_DYNAMIC Tue Jan 13 16:40:06 UTC 2026 x86_64",
+    "distro": "Ubuntu 24.04.4 LTS (noble)",
+    "user": "vpsupport",
+    "uid": 1001,
+    "sudo_nopasswd": true,
+    "sudo_full": "(ALL) NOPASSWD: ALL"
+  },
+  "cpu": {
+    "model": "Intel(R) Xeon(R) Platinum 8470",
+    "cores_logical": 104
+  },
+  "ram_gb": 1007,
+  "swap_gb": 0,
+  "numa_nodes": 8,
+  "numa_layout": "8 nodes (0-7), ~128 GB each, dual-socket distance pattern (intra-socket=12, inter-socket=21)",
+  "gpus": "unknown - host has NVIDIA driver kmod 580.126.20 loaded but nvidia-smi from /run/nvidia/driver overlay reports 'couldn't communicate with the NVIDIA driver'. Node is K8s worker with taint voltagepark.io/cni-pending=true:NoSchedule and label voltagepark.io/has-gpu=true,voltagepark.io/gpu-validated=false. GPUs are managed by NVIDIA GPU Operator and not directly visible from the host shell. We need to either (a) run inside a K8s pod that requests gpu resources, or (b) get the node un-tainted / GPUs validated by VP support before vLLM can run on the host.",
+  "gpu_driver": "NVIDIA Open Kernel Module 580.126.20 (built 2026-02-18, gcc 13.3.0)",
+  "gpu_topo": "unknown (nvidia-smi cannot communicate with driver from host)",
+  "cuda_version": "unknown - no nvcc, no /usr/local/cuda*. CUDA toolkit not installed on host (would normally be provided per-pod by GPU operator container).",
+  "ib": {
+    "devices_total": 12,
+    "devices_active_ib": ["mlx5_0", "mlx5_3", "mlx5_4", "mlx5_5", "mlx5_6", "mlx5_9", "mlx5_10", "mlx5_11"],
+    "devices_active_ethernet": ["mlx5_1"],
+    "devices_down": ["mlx5_2", "mlx5_7", "mlx5_8"],
+    "ib_rate_gbps": 400,
+    "ib_link_layer": "InfiniBand (mlx5_0/3/4/5/6/9/10/11), Ethernet (mlx5_1/2/7/8)",
+    "iface_names": ["ibp26s0", "ibp60s0", "ibp77s0", "ibp94s0", "ibp156s0", "ibp188s0", "ibp204s0", "ibp220s0"],
+    "ipoib_ipv4": null,
+    "ipoib_note": "All 8 active IB interfaces are RDMA-only (no IPoIB IPv4 addresses, only link-local IPv6). Subnet manager queries fail (no MAD port permissions). RDMA verbs work; IP-style east-west between hosts over IB is not configured.",
+    "rdma_userspace_tools": ["ibstat", "ibstatus", "ibping", "ibv_devinfo", "ib_send_lat", "ib_send_bw", "ucx_info", "rdma"],
+    "fw_versions": {"mlx5_0_class": "28.39.1002 (CX-7, MT4129)", "mlx5_1_class": "22.38.1002 (CX-6 Dx, MT4125)"}
+  },
+  "network": {
+    "ifaces_up": ["lo", "eno8303", "enp27s0f0np0", "ibp26s0", "ibp60s0", "ibp77s0", "ibp94s0", "ibp156s0", "ibp188s0", "ibp204s0", "ibp220s0", "bootnet", "cilium_net", "cilium_host", "cilium_vxlan", "lxc_health", "lxc*"],
+    "ifaces_down": ["eno8403", "enp27s0f1np1", "enp157s0f0np0", "enp157s0f1np1"],
+    "primary_iface": "bootnet",
+    "primary_ipv4": "10.10.34.2/24",
+    "default_gw": "10.10.34.254 via bootnet",
+    "public_ip": "159.26.81.50 (NAT via gateway 10.10.34.254 - not bound on any local interface)",
+    "cilium_host_ip": "172.28.0.86/32",
+    "k8s_pod_cidr": "172.28.0.0/24 (and 172.28.1.0/24, 172.28.2.0/24 via cilium_host)",
+    "route_to_y": "147.185.40.126 via 10.10.34.254 dev bootnet src 10.10.34.2",
+    "route_to_g307": "159.26.81.53 via 10.10.34.254 dev bootnet src 10.10.34.2 (BUT g307 is unreachable on public IP - timeout & 100% packet loss)",
+    "private_subnet_peers_alive": ["10.10.34.5", "10.10.34.254 (gateway)"],
+    "private_subnet_peers_no_reply": ["10.10.34.3", "10.10.34.4", "10.10.34.6", "10.10.34.7", "10.10.34.8"],
+    "g307_internal_ip": "unknown - g307 is NOT in the same /24 bootnet as g304, no DNS entry, not reachable on its public IP from g304",
+    "etc_hosts_relevant": "127.0.1.1 g304.iad1.voltagepark.net g304",
+    "listen_ports_user_facing": ["22 (sshd)", "111 (rpcbind)", "10222/10248 (kubelet)", "10250 (kubelet)", "4240 (cilium-health on bootnet)", "many cilium / k8s internal ports on 127.0.0.1 (9878, 9964, 8133, etc.)"],
+    "listen_ports_required_for_mooncake_ALL_FREE": {
+      "10001_master": "free",
+      "2379_etcd": "free",
+      "2380_etcd_peer": "free",
+      "13000": "free",
+      "13001": "free",
+      "13100": "free",
+      "13500": "free",
+      "13999": "free"
+    }
+  },
+  "firewall": {
+    "iptables_input_default": "ACCEPT (with CILIUM_INPUT and KUBE-FIREWALL chains chained in - cilium/kubelet manage rules)",
+    "ufw": "inactive",
+    "firewalld": "not installed",
+    "note": "No host-level deny. Cilium NetworkPolicy and kube-proxy may inject pod-level rules but host listening ports are governed by iptables ACCEPT default. The blocker for east-west to g307 on its public IP is at the cluster gateway (10.10.34.254 / upstream), NOT host iptables."
+  },
+  "storage": {
+    "mounts": {
+      "/": {"device": "/dev/nvme5n1p2", "size": "439G", "used": "31G", "avail": "387G"},
+      "/scratch": {"device": "/dev/md0 (RAID)", "size": "15T (14T usable)", "used": "28K", "avail": "14T", "note": "EMPTY - perfect for model weights, venvs, build outputs"},
+      "/data": {"device": "10.10.69.1:/data (NFS v3)", "size": "513G", "used": "501G", "avail": "12G", "note": "98% full shared NFS - NOT suitable for new model downloads. Read-only access to existing artefacts likely."},
+      "/dev/shm": {"size": "504G", "note": "huge tmpfs - useful for vLLM IPC"}
+    },
+    "candidate_model_dirs": ["/scratch (14T free, recommended)", "/ root (387G free, fallback)"],
+    "shared_fs": "NFS at 10.10.69.1:/data on /data (vers=3, nconnect=32) — almost full"
+  },
+  "software": {
+    "python3": "Python 3.12.3 (pip 24.0)",
+    "python3_venv": "ok (python3-venv installed)",
+    "python3_ensurepip": "MISSING (need apt install python3-venv ensurepip support before pip install in venvs - or use uv)",
+    "gcc": "13.3.0",
+    "gpp": "13.3.0",
+    "cmake": "MISSING",
+    "etcd": "MISSING",
+    "etcdctl": "MISSING",
+    "docker": "MISSING",
+    "vllm": "MISSING",
+    "jemalloc": "MISSING",
+    "mooncake_libs": "MISSING (no /usr/local/lib/libtransfer_engine* or libetcd*)",
+    "cuda_toolkit": "MISSING (no nvcc, no /usr/local/cuda*)",
+    "rdma_libs": "PRESENT (perftest, rdma-core, ucx tooling all installed)",
+    "etcd_helper": "/usr/local/bin/etcd-network-tuning.sh present (just a tuning script, not the etcd daemon)"
+  },
+  "kubernetes": {
+    "is_k8s_node": true,
+    "kubelet_running": true,
+    "kubelet_node_ip": "10.10.34.2",
+    "node_labels": "voltagepark.io/has-gpu=true, voltagepark.io/gpu-validated=false",
+    "node_taints": "voltagepark.io/cni-pending=true:NoSchedule",
+    "cni": "Cilium (cilium_host 172.28.0.86, cilium_vxlan, ~17 lxc veth pairs already)",
+    "implication": "Host is a Voltage Park managed-Kubernetes worker with NVIDIA GPU Operator. GPUs are not directly accessible from the host shell; they are exposed only inside scheduled pods. To run vLLM on the bare-metal host, we either need (a) the node un-tainted + GPU validated, OR (b) to run vLLM inside a K8s pod that requests nvidia.com/gpu resources."
+  },
+  "outbound": {
+    "to_y_22": "OPEN (SSH connect succeeded)",
+    "to_y_443": "REFUSED (Y has no HTTPS listener — that's about Y, not g304)",
+    "to_y_13000": "REFUSED (Y has no listener — expected, we'll start one there)",
+    "to_y_rtt_ms": 29.74,
+    "to_y_packet_loss_pct": 0,
+    "to_g307_22": "TIMEOUT (no answer at all)",
+    "to_g307_rtt_ms": null,
+    "to_g307_packet_loss_pct": 100,
+    "blocker_g307": "g307 is not reachable from g304 over the public IP path. They do not share the bootnet /24 either. Cluster X 'g304+g307' east-west connectivity needs to be sorted out (either get them on the same private subnet, get IPoIB plumbed, or get the gateway to allow 159.26.81.50 <-> 159.26.81.53)."
+  },
+  "existing_repos": {
+    "home_dir": "/home/vpsupport (essentially empty - .bashrc, .profile, .cache only)",
+    "Mooncake": "not present",
+    "mooncake": "not present",
+    "prfaas": "not present"
+  },
+  "summary": {
+    "ready_for_vllm": false,
+    "ready_for_mooncake": false,
+    "blockers": [
+      "GPUs not accessible from host shell (NVIDIA Operator manages them inside K8s; node has cni-pending NoSchedule taint and gpu-validated=false)",
+      "g307 (the other X node) is unreachable on its public IP and not on the same private subnet — need a working east-west path before any TE/RPC traffic between X-nodes can be tested",
+      "No CUDA toolkit, no vLLM, no etcd, no cmake, no docker, no jemalloc, no mooncake libs installed — full software stack still needs to be installed (sudo NOPASSWD ALL is available so this is straightforward)"
+    ],
+    "non_blockers_good": [
+      "Sudo NOPASSWD ALL works",
+      "1 TB RAM, 104 cores, 8 NUMA nodes — plenty of headroom",
+      "14 TB empty /scratch RAID for model weights and venvs",
+      "8x active 400 Gbps InfiniBand HCAs (MT4129/CX-7) plus 1x 100 Gbps Ethernet HCA",
+      "Outbound SSH to Y works at ~30 ms RTT, 0% loss",
+      "All Mooncake-relevant ports (10001, 2379/2380, 13000-13999) are FREE",
+      "Ubuntu 24.04, Python 3.12, gcc/g++ 13.3, all RDMA userspace tooling already installed"
+    ]
+  }
+}

@@ -1,0 +1,384 @@
+# Stage B concurrency-sweep bench Job.
+#
+# This Job is **parameterized per-config**: the operator launches one Job
+# per config (H, N, P) by exporting CONFIG=H|N|P, then `envsubst < this >
+# /tmp/bench.yaml && kubectl apply -f /tmp/bench.yaml`. The Job name,
+# label, and proxy host are all derived from CONFIG.
+#
+# Why it's a Job (not the host script) — keeps `kubectl apply` as the only
+# host touch on cluster X (per the operator directive in DISCOVERY.md
+# §pivot-trigger). The Job can run on any node in the cluster; we pin it
+# to g304 by default so its hostPath results dir lands somewhere
+# predictable for `scp` extraction.
+#
+# Output layout on the chosen node's /scratch:
+#   /scratch/prfaas-results/stageB/<config>/<workload>/sweep.csv
+#   /scratch/prfaas-results/stageB/<config>/<workload>/in-NNNNN_out-NNNN_c-NNN.json
+#   /scratch/prfaas-results/stageB/<config>/<workload>/in-NNNNN_out-NNNN_c-NNN.log
+#
+# Bench workload code lives in the ConfigMap `bench-workload` below; the
+# Job mounts it at /opt/bench/bench_workload.py and exec's it.
+#
+# To run with envsubst (operator):
+#   export CONFIG=H              # or N or P
+#   envsubst '${CONFIG} ${CONFIG_LOWER}' < 40-bench-job.yaml \
+#     | kubectl apply -f -
+# Or just edit the two ${CONFIG_LOWER} occurrences by hand.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bench-workload
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    app.kubernetes.io/part-of: prfaas
+data:
+  bench_workload.py: |
+    #!/usr/bin/env python3
+    """
+    Stage B in-cluster concurrency sweep.
+
+    Ports the essence of
+      prfaas/m1.5-vllm-baseline/scripts/run_concurrency_sweep.sh
+    into a self-contained Python script that does NOT depend on vLLM's
+    benchmark_serving.py. We re-implement just the parts we need:
+
+      - For each (workload, concurrency) cell: fire `concurrency * NUM_FOLDS`
+        OpenAI chat-completion requests with bounded concurrency, measure
+        TTFT (time to first streamed token) per request.
+      - Compute P50/P95/P99 TTFT, P50 E2EL, output throughput across the
+        cell.
+      - Append one CSV row per cell to <results>/<workload>/sweep.csv with
+        the same schema as the host-side script.
+      - Stop early if TTFT-P95 breaches the workload's SLO twice in a row
+        (matches STOP_ON_SLO_BREACH=1 from the host script).
+
+    All env config is read from the prfaas-stageb-env ConfigMap (mounted
+    via envFrom in the Job).
+    """
+    from __future__ import annotations
+
+    import asyncio
+    import csv
+    import json
+    import os
+    import random
+    import string
+    import sys
+    import time
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from statistics import median
+
+    import httpx
+    import numpy as np
+
+    # ---------- workload definitions ------------------------------------
+    WORKLOADS = {
+        "chat_balanced":  {"in": 1024,  "out": 256, "slo_env": "TTFT_SLO_CHAT_BALANCED_MS"},
+        "long_context":   {"in": 16384, "out": 256, "slo_env": "TTFT_SLO_LONG_CONTEXT_MS"},
+        "rag_summary":    {"in": 8192,  "out": 512, "slo_env": "TTFT_SLO_RAG_SUMMARY_MS"},
+        "code_complete":  {"in": 4096,  "out": 32,  "slo_env": "TTFT_SLO_CODE_COMPLETE_MS"},
+    }
+
+    # ---------- env -----------------------------------------------------
+    PROXY_HOST     = os.environ["PROXY_HOST"]
+    PROXY_PORT     = int(os.environ.get("PROXY_PORT", "8000"))
+    SERVED_MODEL   = os.environ.get("SERVED_MODEL_NAME", "nemotron-nano-9b-v2")
+    CONFIG_TAG     = os.environ.get("CONFIG_TAG", "unknown")
+    RESULTS_DIR    = Path(os.environ.get("BENCH_RESULTS_DIR", "/results")) / f"config{CONFIG_TAG}"
+    WORKLOAD_LIST  = os.environ.get("BENCH_WORKLOADS",
+                                    "chat_balanced long_context rag_summary code_complete").split()
+    CONCURRENCIES  = [int(x) for x in os.environ.get("BENCH_CONCURRENCIES",
+                                    "1 4 16 32 64 128 192").split()]
+    NUM_FOLDS      = int(os.environ.get("BENCH_NUM_FOLDS", "20"))
+    STOP_ON_BREACH = os.environ.get("BENCH_STOP_ON_SLO_BREACH", "1") == "1"
+    REQUEST_TIMEOUT_S = float(os.environ.get("BENCH_REQUEST_TIMEOUT_S", "300"))
+
+    BASE_URL = f"http://{PROXY_HOST}:{PROXY_PORT}"
+
+    # ---------- helpers -------------------------------------------------
+    def make_random_prompt(target_input_tok: int) -> str:
+        # Crude word-count based prompt — averages ~1.3 tokens/word for
+        # English ASCII gibberish, so multiply by 0.77 to hit target.
+        # We accept ±5% drift; the model will still see ~target_input_tok
+        # tokens after BPE.
+        n_words = max(8, int(target_input_tok * 0.77))
+        rng = random.Random(target_input_tok ^ int(time.time_ns() & 0xFFFF))
+        words = [
+            "".join(rng.choice(string.ascii_lowercase) for _ in range(rng.randint(3, 9)))
+            for _ in range(n_words)
+        ]
+        return " ".join(words)
+
+    async def fire_one(client: httpx.AsyncClient, prompt: str, max_tokens: int) -> dict:
+        """Fire one streaming chat completion. Return per-request timings."""
+        body = {
+            "model": SERVED_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.0,
+            "stream": True,
+            "ignore_eos": True,
+        }
+        t0 = time.perf_counter()
+        ttft = None
+        n_chunks = 0
+        n_output_tokens = 0
+        last_chunk_t = t0
+        try:
+            async with client.stream(
+                "POST", "/v1/chat/completions",
+                json=body, timeout=REQUEST_TIMEOUT_S,
+            ) as resp:
+                if resp.status_code != 200:
+                    err_body = await resp.aread()
+                    return {"ok": False, "http": resp.status_code, "err": err_body[:500]}
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+                    if delta.get("content"):
+                        if ttft is None:
+                            ttft = time.perf_counter() - t0
+                        n_output_tokens += 1
+                        last_chunk_t = time.perf_counter()
+                        n_chunks += 1
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.PoolTimeout) as e:
+            return {"ok": False, "http": -1, "err": f"timeout: {e!r}"}
+        except Exception as e:
+            return {"ok": False, "http": -2, "err": f"{type(e).__name__}: {e!r}"}
+        e2el = last_chunk_t - t0
+        return {
+            "ok": ttft is not None,
+            "ttft_s": ttft if ttft is not None else float("nan"),
+            "e2el_s": e2el,
+            "n_output_tokens": n_output_tokens,
+        }
+
+    async def run_cell(workload_name: str, in_tok: int, out_tok: int, concurrency: int) -> dict:
+        n_total = concurrency * NUM_FOLDS
+        sem = asyncio.Semaphore(concurrency)
+        prompt_pool = [make_random_prompt(in_tok) for _ in range(min(n_total, 64))]
+        async with httpx.AsyncClient(base_url=BASE_URL) as client:
+            async def worker(i: int):
+                prompt = prompt_pool[i % len(prompt_pool)]
+                async with sem:
+                    return await fire_one(client, prompt, out_tok)
+            t_cell0 = time.perf_counter()
+            results = await asyncio.gather(*(worker(i) for i in range(n_total)))
+            t_cell1 = time.perf_counter()
+        ok = [r for r in results if r["ok"]]
+        n_ok = len(ok)
+        n_err = n_total - n_ok
+        if not ok:
+            return {
+                "workload": workload_name, "in_tok": in_tok, "out_tok": out_tok,
+                "concurrency": concurrency, "n_total": n_total,
+                "n_ok": 0, "n_err": n_err,
+                "wall_s": t_cell1 - t_cell0,
+                "ttft_p50_ms": "", "ttft_p95_ms": "", "ttft_p99_ms": "",
+                "e2el_p50_ms": "", "tpot_p50_ms": "", "out_tput_tok_s": "",
+            }
+        ttfts_ms = np.array([r["ttft_s"] for r in ok]) * 1000.0
+        e2els_ms = np.array([r["e2el_s"] for r in ok]) * 1000.0
+        out_toks = np.array([r["n_output_tokens"] for r in ok])
+        # TPOT = (e2el - ttft) / (n_out - 1)
+        tpot_s = np.where(out_toks > 1,
+                          (np.array([r["e2el_s"] for r in ok]) - np.array([r["ttft_s"] for r in ok]))
+                          / np.maximum(out_toks - 1, 1),
+                          0.0)
+        out_tput = float(out_toks.sum()) / max(t_cell1 - t_cell0, 1e-9)
+        return {
+            "workload": workload_name, "in_tok": in_tok, "out_tok": out_tok,
+            "concurrency": concurrency, "n_total": n_total,
+            "n_ok": n_ok, "n_err": n_err,
+            "wall_s": t_cell1 - t_cell0,
+            "ttft_p50_ms": float(np.percentile(ttfts_ms, 50)),
+            "ttft_p95_ms": float(np.percentile(ttfts_ms, 95)),
+            "ttft_p99_ms": float(np.percentile(ttfts_ms, 99)),
+            "e2el_p50_ms": float(np.percentile(e2els_ms, 50)),
+            "tpot_p50_ms": float(np.percentile(tpot_s, 50) * 1000.0),
+            "out_tput_tok_s": out_tput,
+        }
+
+    def append_csv(csv_path: Path, row: dict, slo_ms: float) -> None:
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        new = not csv_path.exists()
+        with csv_path.open("a", newline="") as f:
+            w = csv.writer(f)
+            if new:
+                w.writerow([
+                    "workload", "model", "input_len", "output_len", "concurrency",
+                    "num_prompts", "wall_clock_iso",
+                    "ttft_p50_ms", "ttft_p95_ms", "ttft_p99_ms",
+                    "tpot_p50_ms", "e2el_p50_ms",
+                    "output_throughput_tok_s",
+                    "n_ok", "n_err", "wall_s",
+                    "slo_ms", "slo_met",
+                ])
+            slo_met = 1 if (row["ttft_p95_ms"] != "" and row["ttft_p95_ms"] <= slo_ms) else 0
+            w.writerow([
+                row["workload"], SERVED_MODEL, row["in_tok"], row["out_tok"],
+                row["concurrency"], row["n_total"],
+                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                row["ttft_p50_ms"], row["ttft_p95_ms"], row["ttft_p99_ms"],
+                row["tpot_p50_ms"], row["e2el_p50_ms"],
+                row["out_tput_tok_s"],
+                row["n_ok"], row["n_err"], f"{row['wall_s']:.3f}",
+                slo_ms, slo_met,
+            ])
+
+    async def main() -> int:
+        print(f"[bench] proxy={BASE_URL} model={SERVED_MODEL} config={CONFIG_TAG}")
+        print(f"[bench] workloads={WORKLOAD_LIST}")
+        print(f"[bench] concurrencies={CONCURRENCIES} num_folds={NUM_FOLDS}")
+        print(f"[bench] results_dir={RESULTS_DIR}")
+        RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        # Wait for proxy reachability
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
+            for attempt in range(60):
+                try:
+                    r = await client.get("/v1/models")
+                    if r.status_code == 200:
+                        print(f"[bench] proxy reachable: {r.json()}")
+                        break
+                except Exception as e:
+                    print(f"[bench] proxy not yet reachable ({e}); retrying...")
+                await asyncio.sleep(5)
+            else:
+                print("[bench] FATAL: proxy never became reachable")
+                return 2
+
+        for w in WORKLOAD_LIST:
+            if w not in WORKLOADS:
+                print(f"[bench] WARN unknown workload {w}; skipping")
+                continue
+            spec = WORKLOADS[w]
+            slo_ms = float(os.environ.get(spec["slo_env"], "2000"))
+            csv_path = RESULTS_DIR / w / "sweep.csv"
+            print(f"[bench] === workload={w} in={spec['in']} out={spec['out']} slo={slo_ms} ms ===")
+            breaches = 0
+            for c in CONCURRENCIES:
+                print(f"[bench] cell: workload={w} concurrency={c}")
+                row = await run_cell(w, spec["in"], spec["out"], c)
+                # Save raw cell JSON for traceability
+                tag = f"in-{spec['in']:05d}_out-{spec['out']:04d}_c-{c:03d}"
+                (RESULTS_DIR / w).mkdir(parents=True, exist_ok=True)
+                with (RESULTS_DIR / w / f"{tag}.json").open("w") as f:
+                    json.dump(row, f, indent=2)
+                append_csv(csv_path, row, slo_ms)
+                if row["ttft_p95_ms"] == "" or row["ttft_p95_ms"] > slo_ms:
+                    breaches += 1
+                    print(f"[bench]   TTFT_P95={row['ttft_p95_ms']} ms (SLO={slo_ms}) breach #{breaches}")
+                    if STOP_ON_BREACH and breaches >= 2:
+                        print(f"[bench]   stopping {w} sweep after 2 breaches")
+                        break
+                else:
+                    print(f"[bench]   TTFT_P95={row['ttft_p95_ms']:.1f} ms (SLO={slo_ms})")
+        print("[bench] all workloads done")
+        return 0
+
+    if __name__ == "__main__":
+        sys.exit(asyncio.run(main()))
+---
+# The Job itself.
+#
+# IMPORTANT: this manifest contains two ${CONFIG} placeholders that the
+# operator must substitute (or hand-edit) before kubectl apply:
+#   - metadata.name:           bench-${CONFIG_LOWER}
+#   - labels.prfaas.config:    "${CONFIG}"
+#   - env CONFIG_TAG:          "${CONFIG}"
+#   - env PROXY_HOST:          proxy-${CONFIG_LOWER}.prfaas-stageb.svc.cluster.local
+#
+# Recommended flow (operator):
+#   export CONFIG=H && export CONFIG_LOWER=h
+#   envsubst < 40-bench-job.yaml | kubectl apply -f -
+#
+# Once the Job completes:
+#   kubectl -n prfaas-stageb wait --for=condition=complete job/bench-${CONFIG_LOWER} --timeout=4h
+#   kubectl -n prfaas-stageb logs -f job/bench-${CONFIG_LOWER}
+#   ssh vpsupport@<g304_public_ip> 'ls /scratch/prfaas-results/stageB/config${CONFIG}/'
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bench-${CONFIG_LOWER}
+  namespace: prfaas-stageb
+  labels:
+    prfaas.experiment/stage: "B"
+    prfaas.config: "${CONFIG}"
+    app.kubernetes.io/part-of: prfaas
+    prfaas.role: bench
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: bench-${CONFIG_LOWER}
+        prfaas.experiment/stage: "B"
+        prfaas.config: "${CONFIG}"
+        prfaas.role: bench
+    spec:
+      restartPolicy: Never
+      # Pin to g304 so the hostPath results dir lives in a known place.
+      # Safe to flip to g307 if g304 is busy with the serving pods — just
+      # update BENCH_RESULTS_HOST_DIR's owning node in the operator log.
+      nodeSelector:
+        kubernetes.io/hostname: g304
+      tolerations:
+        - operator: Exists
+      volumes:
+        - name: bench-code
+          configMap:
+            name: bench-workload
+            defaultMode: 0o755
+        - name: results
+          # hostPath because cluster X has no StorageClass and we want the
+          # CSV/JSON to survive Job deletion + be `scp`-able from the node.
+          # The bench Job creates BENCH_RESULTS_HOST_DIR/configX/<workload>/
+          # under this mount.
+          hostPath:
+            path: /scratch/prfaas-results/stageB
+            type: DirectoryOrCreate
+      containers:
+        - name: bench
+          image: python:3.11-slim
+          envFrom:
+            - configMapRef:
+                name: prfaas-stageb-env
+          env:
+            - name: CONFIG_TAG
+              value: "${CONFIG}"
+            - name: PROXY_HOST
+              value: "proxy-${CONFIG_LOWER}.prfaas-stageb.svc.cluster.local"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[bench] installing httpx + numpy"
+              pip install --no-cache-dir --quiet 'httpx==0.27.*' 'numpy==1.26.*'
+              echo "[bench] env CONFIG=${CONFIG_TAG} PROXY=${PROXY_HOST}:${PROXY_PORT}"
+              echo "[bench] results -> ${BENCH_RESULTS_DIR}/config${CONFIG_TAG}"
+              exec python3 /opt/bench/bench_workload.py
+          resources:
+            requests:
+              cpu: "2"
+              memory: 2Gi
+            limits:
+              cpu: "8"
+              memory: 8Gi
+          volumeMounts:
+            - name: bench-code
+              mountPath: /opt/bench
+              readOnly: true
+            - name: results
+              mountPath: /results

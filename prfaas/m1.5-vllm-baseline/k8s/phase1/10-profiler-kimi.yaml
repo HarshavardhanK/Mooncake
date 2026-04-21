@@ -1,0 +1,182 @@
+# Phase 1 Φkv profiler for H1 = Kimi-Linear-48B-A3B-Instruct.
+#
+# Single-Pod Job. The container:
+#   1. Installs probe deps (requests, transformers — already in sglang image)
+#   2. Launches sglang.launch_server in the background, with --disable-radix-cache
+#      and --max-running-requests 1 (paper-faithful, see PHASE1_PHIKV_PLAN §4)
+#   3. Runs phi_kv_probe.py against the local server, sweeping the ctx range
+#      from the ConfigMap, writing JSONL to /results/<model_short>.jsonl
+#   4. Kills sglang and exits with the probe's status code
+#
+# When the probe exits, the Pod completes. The Job is then "Complete" and
+# the GPUs are released.
+#
+# We mount the probe script in via a ConfigMap so we don't need a custom image.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-phase1-probe-script
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    app.kubernetes.io/part-of: prfaas
+data:
+  # Source-of-truth lives at prfaas/m1.5-vllm-baseline/scripts/phi_kv_probe.py
+  # Sync with:
+  #   kubectl -n default create configmap prfaas-phase1-probe-script \
+  #     --from-file=phi_kv_probe.py=prfaas/m1.5-vllm-baseline/scripts/phi_kv_probe.py \
+  #     --dry-run=client -o yaml | kubectl apply -f -
+  phi_kv_probe.py: |
+    # placeholder — replace with `kubectl create configmap ... --from-file`
+    raise SystemExit("phi_kv_probe.py not synced; see comment in 10-profiler-kimi.yaml")
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prfaas-phase1-results
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phi-kv-profiler-kimi-linear-48b
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "1"
+    prfaas.experiment/model: "kimi-linear-48b"
+    app.kubernetes.io/part-of: prfaas
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: phi-kv-profiler-kimi-linear-48b
+        prfaas.experiment/phase: "1"
+        prfaas.experiment/model: "kimi-linear-48b"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      containers:
+        - name: profiler
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase1-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: SGLANG_TAG
+              value: "sglang-v0.5.9-cu129-amd64"
+            - name: SGLANG_FLAGS
+              value: "--disable-radix-cache --max-running-requests 1"
+            - name: HF_HOME
+              value: "/models/.cache/hf"
+            - name: VLLM_LOGGING_LEVEL
+              value: "INFO"
+            # Prevent torch._inductor.compile_worker subprocesses from
+            # spawning during CUDA-graph capture; they otherwise inherit
+            # SGLANG_PORT and grab our user-facing API port. See
+            # PHASE1_PHIKV_PLAN §troubleshooting.
+            - name: TORCHINDUCTOR_COMPILE_THREADS
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[run] target model: ${H1_MODEL_REPO}"
+              echo "[run] local dir:    ${H1_MODEL_LOCAL_DIR}"
+              echo "[run] tp size:      ${H1_TP_SIZE}"
+              echo "[run] ctx lens:     ${CTX_LENS}"
+
+              # fla-core is required by Kimi-Linear's KDA layers (per the
+              # model card). Install at startup; the sglang image does not
+              # bundle it.
+              echo "[run] installing fla-core for Kimi-Linear KDA kernels"
+              pip install --no-cache-dir --quiet 'fla-core>=0.4.0'
+
+              echo "[run] launching SGLang in background"
+              python3 -m sglang.launch_server \
+                --model-path "${H1_MODEL_LOCAL_DIR}" \
+                --tp ${H1_TP_SIZE} \
+                --trust-remote-code \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --host 127.0.0.1 \
+                --mem-fraction-static 0.85 \
+                --max-running-requests 1 \
+                --disable-radix-cache \
+                --log-level info \
+                > /results/${H1_MODEL_SHORT}.sglang.log 2>&1 &
+              SGLANG_PID=$!
+              echo "[run] sglang pid=${SGLANG_PID}"
+
+              cleanup() {
+                echo "[run] cleaning up sglang pid=${SGLANG_PID}"
+                kill -TERM ${SGLANG_PID} 2>/dev/null || true
+                wait ${SGLANG_PID} 2>/dev/null || true
+              }
+              trap cleanup EXIT
+
+              echo "[run] running probe; output → /results/${H1_MODEL_SHORT}.jsonl"
+              python3 /scripts/phi_kv_probe.py \
+                --model-dir "${H1_MODEL_LOCAL_DIR}" \
+                --model-id "${H1_MODEL_REPO}" \
+                --model-short "${H1_MODEL_SHORT}" \
+                --tp-size "${H1_TP_SIZE}" \
+                --base-url "http://127.0.0.1:${PRFAAS_SGLANG_API_PORT}" \
+                --ctx-lens "${CTX_LENS}" \
+                --warmup "${WARMUP_REQUESTS}" \
+                --timed "${TIMED_REQUESTS}" \
+                --output-len "${OUTPUT_LEN}" \
+                --output "/results/${H1_MODEL_SHORT}.jsonl"
+              RC=$?
+              echo "[run] probe exit code = ${RC}"
+              exit $RC
+          ports:
+            - containerPort: 30000
+              name: sglang
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "8"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "8"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+            - name: results
+              mountPath: /results
+            - name: probe-script
+              mountPath: /scripts
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+        - name: results
+          persistentVolumeClaim:
+            claimName: prfaas-phase1-results
+        - name: probe-script
+          configMap:
+            name: prfaas-phase1-probe-script
+            defaultMode: 0755
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

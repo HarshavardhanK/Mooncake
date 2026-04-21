@@ -1,0 +1,45 @@
+# One-shot smoke: hit the proxy with a chat completion, assert 200 +
+# non-empty content. Used as the gate before any benchmark cell.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke
+  labels:
+    prfaas.experiment/stage: "A"
+    app.kubernetes.io/part-of: prfaas
+  namespace: default
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          envFrom:
+            - configMapRef:
+                name: prfaas-stagea-env
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              MODEL="${PRIMARY_MODEL_SHORT:-qwen2.5-7b-instruct}"
+              echo "[smoke] model=$MODEL  hitting proxy..."
+              body=$(printf '{"model":"%s","messages":[{"role":"user","content":"Say the single word: OK"}],"max_tokens":4,"temperature":0}' "$MODEL")
+              resp=$(curl -sS -w '\n__HTTP__%{http_code}' \
+                http://proxy.default.svc.cluster.local:8000/v1/chat/completions \
+                -H 'Content-Type: application/json' \
+                -d "$body")
+              code=$(echo "$resp" | sed -n 's/^__HTTP__//p')
+              body=$(echo "$resp" | sed '/^__HTTP__/d')
+              echo "[smoke] http=$code"
+              echo "[smoke] body=$body"
+              if [ "$code" != "200" ]; then
+                echo "[smoke] FAIL: non-200"
+                exit 1
+              fi
+              if ! echo "$body" | grep -qi 'content'; then
+                echo "[smoke] FAIL: no content field"
+                exit 2
+              fi
+              echo "[smoke] OK"

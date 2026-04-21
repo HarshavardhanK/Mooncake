@@ -1,0 +1,179 @@
+# Phase 3 cross-DC — Y-side decoder (kv_consumer-equivalent role).
+#
+# Runs on g126. Mounts the Phase 1 model PVC read-only.
+#
+# Cross-DC reach:
+#   - Mooncake transport: dials ${PREFILLER_HOST}:${PREFILLER_BOOTSTRAP_PORT}
+#     over the WAN (g126 → g304:8998). Stage D's iptables rule on g304 must
+#     be in place; Phase 3 reuses it (port 8998 from 147.185.40.126/32).
+#   - We do NOT use hostNetwork on Y. The decoder's outbound connection to
+#     g304 goes through g126's egress which carries the public IP
+#     147.185.40.126/32 that the X firewall whitelists.
+#
+# IMPORTANT: keep --mem-fraction-static aligned with Phase 1 (0.85). At
+# TP=8 on Kimi-Linear-48B this fits comfortably.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decoder-phase3-xdc
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    prfaas.role: kv_consumer
+    app.kubernetes.io/part-of: prfaas
+    app: decoder-phase3-xdc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: decoder-phase3-xdc
+  template:
+    metadata:
+      labels:
+        app: decoder-phase3-xdc
+        prfaas.role: kv_consumer
+        prfaas.experiment/phase: "3-xdc"
+        prfaas.experiment/cluster: "Y"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+            readOnly: true
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      containers:
+        - name: sglang-decoder
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-xdc-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            - name: MC_TCP_ENABLE_CONNECTION_POOL
+              value: "1"
+            - name: MC_LEGACY_RPC_PORT_BINDING
+              value: "1"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[decoder-xdc] launching SGLang"
+              echo "[decoder-xdc] model:  ${MODEL_LOCAL_DIR}"
+              echo "[decoder-xdc] tp:     ${TP_SIZE}"
+              echo "[decoder-xdc] api:    :${PRFAAS_SGLANG_API_PORT}"
+              echo "[decoder-xdc] prefill bootstrap (cross-DC): ${PREFILLER_HOST}:${PREFILLER_BOOTSTRAP_PORT}"
+
+              if [[ ! -f "${MODEL_LOCAL_DIR}/config.json" ]]; then
+                echo "[decoder-xdc] FATAL: ${MODEL_LOCAL_DIR}/config.json missing."
+                echo "[decoder-xdc] Apply Phase 1's 02-model-staging-job-kimi.yaml first."
+                exit 11
+              fi
+
+              echo "[decoder-xdc] installing fla-core (Kimi-Linear KDA kernels)"
+              pip install --no-cache-dir --quiet "fla-core>=${FLA_CORE_VERSION}"
+
+              # Cross-DC pre-flight: confirm the prefiller's bootstrap port is
+              # reachable over the WAN before we start SGLang. Failing here
+              # gives a much faster diagnostic than waiting for SGLang's
+              # internal Mooncake setup to time out (which can take minutes).
+              echo "[decoder-xdc] cross-DC reachability check: ${PREFILLER_HOST}:${PREFILLER_BOOTSTRAP_PORT}"
+              REACHABLE=0
+              for i in $(seq 1 60); do
+                if (echo > "/dev/tcp/${PREFILLER_HOST}/${PREFILLER_BOOTSTRAP_PORT}") 2>/dev/null; then
+                  echo "[decoder-xdc] WAN bootstrap reachable after ${i} attempts"
+                  REACHABLE=1
+                  break
+                fi
+                sleep 5
+              done
+              if [[ "${REACHABLE}" -ne 1 ]]; then
+                echo "[decoder-xdc] FATAL: cannot reach ${PREFILLER_HOST}:${PREFILLER_BOOTSTRAP_PORT} from g126."
+                echo "[decoder-xdc] Check: (1) X-side prefiller is running, (2) g304 firewall has rule for 147.185.40.126/32, (3) Stage 0a path still healthy."
+                echo "[decoder-xdc] See ../../../docs/30-operations/XDC_RUNBOOK.md §Pre-flight."
+                exit 12
+              fi
+
+              # Same flag set as phase3-smoke decoder. Decoder side does not
+              # need --disaggregation-bootstrap-port (it dials, not listens).
+              # See ENGINE_DECISION.md §Open items for flag-verification.
+              exec python3 -m sglang.launch_server \
+                --model-path "${MODEL_LOCAL_DIR}" \
+                --served-model-name "${SERVED_MODEL_NAME}" \
+                --host 0.0.0.0 \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --tp "${TP_SIZE}" \
+                --trust-remote-code \
+                --mem-fraction-static 0.85 \
+                --disable-radix-cache \
+                --disaggregation-mode decode \
+                --disaggregation-transfer-backend mooncake \
+                --log-level info
+          ports:
+            - name: api
+              containerPort: 30001
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "8"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "8"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: decoder-xdc
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-xdc"
+    prfaas.experiment/cluster: "Y"
+    prfaas.role: kv_consumer
+    app.kubernetes.io/part-of: prfaas
+spec:
+  type: ClusterIP
+  selector:
+    app: decoder-phase3-xdc
+  ports:
+    - name: api
+      port: 30001
+      targetPort: 30001
+      protocol: TCP
