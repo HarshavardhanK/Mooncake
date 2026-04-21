@@ -431,7 +431,40 @@ Outputs:
 
 This phase is pure code. No new GPUs, no new K8s. It feeds Phase 3.
 
-### Stage B — All-on-X disagg over IB (1 day)
+### Phase 3 — Empirical SGLang+Mooncake PD-disagg (current focus, Apr 2026)
+
+**Status:** manifests authored on `feat/prfaas-m1.5-vllm-baseline` 2026-04-20.
+Engine locked on SGLang v0.5.9 (rationale + what's deprecated:
+[`docs/40-milestones/m1.5-vllm-baseline/ENGINE_DECISION.md`](../40-milestones/m1.5-vllm-baseline/ENGINE_DECISION.md)).
+Model and operating point picked by Phase 2:
+[`results/m1.5-vllm-baseline/phase2_analytical/PHASE2_PICK.md`](../../results/m1.5-vllm-baseline/phase2_analytical/PHASE2_PICK.md).
+
+**Two layers, applied in order:**
+
+1. **Single-host PD smoke on g126** —
+   [`m1.5-vllm-baseline/k8s/phase3-smoke/`](../../m1.5-vllm-baseline/k8s/phase3-smoke/).
+   Prefiller (TP=4) + decoder (TP=4) + sglang_router on the same node,
+   Mooncake-TCP over the cluster pod network. Validates the SGLang +
+   Mooncake stack end-to-end before we spend cross-DC time. Go/no-go
+   gate: smoke probe Job exits PASS.
+2. **Cross-DC PD on g304→g126** —
+   [`m1.5-vllm-baseline/k8s/phase3-xdc/`](../../m1.5-vllm-baseline/k8s/phase3-xdc/).
+   X-side prefiller pinned to g304 with `hostNetwork=true` so the public
+   IP `159.26.81.50` is what listens on 30001 (api) and 8998 (Mooncake
+   bootstrap). Y-side decoder + router on g126 dial X over the WAN.
+   Operator runbook: [`docs/30-operations/XDC_RUNBOOK.md`](../30-operations/XDC_RUNBOOK.md).
+   X-cluster pre-flight: [`docs/30-operations/X_CLUSTER_PREFLIGHT.md`](../30-operations/X_CLUSTER_PREFLIGHT.md).
+
+The original Stage B/C/D vLLM scaffolds are **deprecated** for the
+paper-replication critical path; their directories now carry a
+`DEPRECATED.md` pointing to the SGLang replacements.
+
+The remaining Stage B/C/D goals (clean-wire upper bound, RTT sweep,
+real-WAN sweep) move under Phase 3 as concurrency-sweep variants of the
+same SGLang stack: smoke for H baseline, xdc for P over real WAN, and
+an `xdc-netem` variant (TBD) for the RTT sweep.
+
+### Stage B — All-on-X disagg over IB (DEPRECATED — kept for v0.3 historical context)
 
 **Goal:** establish the **clean-wire upper bound** for `Λ_max(P)`. This is
 the floor any cross-DC number is compared against. Run all three configs.

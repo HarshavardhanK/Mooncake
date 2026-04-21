@@ -1,0 +1,64 @@
+# Phase 3 — single-host smoke test on g126.
+#
+# Purpose: prove the SGLang PD-disaggregation + Mooncake TCP path *before* we
+# spend any cross-DC time. Both prefiller and decoder run on g126; Mooncake
+# rides the cluster pod network (TCP). If this run cannot complete a single
+# request through the router, cross-DC has zero chance.
+#
+# Same RBAC reality as Phase 1: Y cluster's `mks:customer` only RoleBinds in
+# the `default` namespace, so every Phase 3 object lives there too. Group
+# label is prfaas.experiment/phase=3-smoke so we can clean up with:
+#   kubectl -n default delete deploy,svc,job,pvc,cm \
+#     -l prfaas.experiment/phase=3-smoke
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prfaas-phase3-smoke-env
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    app.kubernetes.io/part-of: prfaas
+data:
+  # ===== Model =====
+  # Phase 2's pick. Already staged on g126 by Phase 1 (model-weights-phase1
+  # PVC). We mount that PVC read-only here, no separate staging Job needed.
+  MODEL_REPO: "moonshotai/Kimi-Linear-48B-A3B-Instruct"
+  MODEL_LOCAL_DIR: "/models/moonshotai_Kimi-Linear-48B-A3B-Instruct"
+  MODEL_SHORT: "kimi-linear-48b"
+  SERVED_MODEL_NAME: "kimi-linear-48b"
+
+  # ===== Tensor parallelism =====
+  # On g126 we have 8 H100s. Smoke uses TP=4 for each role so prefiller +
+  # decoder coexist. Each pod requests `nvidia.com/gpu: 4` from the device
+  # plugin; CUDA inside each pod sees its own renumbered 0..3 set, so we do
+  # not pass --base-gpu-id (it would be a no-op).
+  TP_SIZE: "4"
+
+  # ===== Ports =====
+  # SGLang user-facing API port (uvicorn). DO NOT name this `SGLANG_PORT` —
+  # see Phase 1 ConfigMap for why (SGLang grabs that env for its IPC port).
+  PRFAAS_SGLANG_API_PORT: "30001"
+  # Mooncake bootstrap port the prefiller listens on. Decoder dials this.
+  MOONCAKE_BOOTSTRAP_PORT: "8998"
+  # Router (PD proxy) user-facing port. Bench traffic goes here.
+  ROUTER_PORT: "8000"
+
+  # ===== Engine =====
+  SGLANG_IMAGE: "lmsysorg/sglang:v0.5.9-cu129-amd64"
+  # Mandatory cross-DC TCP knobs. Even though smoke runs on cluster-local
+  # network, we set them here so the Phase 3 SGLang+Mooncake stack is
+  # exercised in the *exact same configuration* it will use cross-DC. No
+  # late surprises.
+  MC_TCP_ENABLE_CONNECTION_POOL: "1"
+  MC_LEGACY_RPC_PORT_BINDING: "1"
+  MOONCAKE_PROTOCOL: "tcp"
+
+  # ===== TORCH_INDUCTOR workaround (Phase 1 troubleshooting §) =====
+  # Prevent torch._inductor.compile_worker subprocesses from spawning during
+  # CUDA-graph capture; they otherwise inherit SGLANG_PORT and grab our
+  # user-facing API port.
+  TORCHINDUCTOR_COMPILE_THREADS: "1"
+
+  # ===== fla-core (Kimi-Linear KDA kernels) =====
+  # Required at runtime, installed in initContainer to avoid a custom image.
+  FLA_CORE_VERSION: "0.4.0"

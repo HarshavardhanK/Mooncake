@@ -22,3 +22,10 @@
 # A single canonical CSV per stage may be checked in by name; commit it
 # explicitly with `git add -f` if needed, or place under a subdir.
 !stage*/*-to-*.csv
+# Phase 2 analytical artifacts are evidence — small, stable, and what
+# downstream phases (3+) reason from. Whitelist the canonical filenames
+# explicitly so the catch-all *.md / *.csv / *.png above doesn't drop them.
+!phase2_analytical/PHASE2_PICK.md
+!phase2_analytical/MODEL_AND_EQUATIONS.md
+!phase2_analytical/lambda_max_predictions.csv
+!phase2_analytical/PAPER_FIG8_REGEN.png

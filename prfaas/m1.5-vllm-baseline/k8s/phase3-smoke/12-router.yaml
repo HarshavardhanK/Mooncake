@@ -1,0 +1,107 @@
+# Phase 3 smoke — sglang_router with PD-disaggregation.
+#
+# This is the user-facing entrypoint. It receives OpenAI-compatible
+# /v1/chat/completions and /v1/completions requests and orchestrates the
+# PD protocol:
+#   1. Forward to prefiller for prefill.
+#   2. Prefiller produces the first KV blocks and registers them with
+#      Mooncake's transfer engine on its bootstrap port.
+#   3. Router instructs the decoder to begin decoding; the decoder pulls
+#      the KV from the prefiller via Mooncake (TCP, since
+#      MOONCAKE_PROTOCOL=tcp on both sides).
+#   4. Decoder streams tokens back through the router to the client.
+#
+# Reference invocation:
+#   scripts/tone_tests/scripts/common.sh::launch_sglang_router
+#
+# The router itself does not need a GPU and lives on whichever node has
+# capacity. We pin it to g126 here to keep the smoke topology obvious;
+# any node would work.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router-phase3-smoke
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    prfaas.role: router
+    app.kubernetes.io/part-of: prfaas
+    app: router-phase3-smoke
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: router-phase3-smoke
+  template:
+    metadata:
+      labels:
+        app: router-phase3-smoke
+        prfaas.role: router
+        prfaas.experiment/phase: "3-smoke"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: sglang-router
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-smoke-env
+          env:
+            - name: PREFILLER_URL
+              value: "http://prefiller.default.svc.cluster.local:30001"
+            - name: DECODER_URL
+              value: "http://decoder.default.svc.cluster.local:30001"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[router-smoke] launching sglang_router"
+              echo "[router-smoke] prefill: ${PREFILLER_URL}"
+              echo "[router-smoke] decode:  ${DECODER_URL}"
+              echo "[router-smoke] listen:  0.0.0.0:${ROUTER_PORT}"
+
+              # Wait for both engines to expose /health before the router
+              # starts; failing here gives a clearer diagnostic than waiting
+              # for the router's own connection-attempt timeout.
+              for url in "${PREFILLER_URL}" "${DECODER_URL}"; do
+                echo "[router-smoke] waiting for ${url}/health"
+                for i in $(seq 1 60); do
+                  if curl -fsS --max-time 3 "${url}/health" >/dev/null 2>&1; then
+                    echo "[router-smoke] ${url} up after ${i} attempts"
+                    break
+                  fi
+                  sleep 5
+                done
+              done
+
+              exec python3 -m sglang_router.launch_router \
+                --pd-disaggregation \
+                --prefill "${PREFILLER_URL}" \
+                --decode "${DECODER_URL}" \
+                --host 0.0.0.0 \
+                --port "${ROUTER_PORT}"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi

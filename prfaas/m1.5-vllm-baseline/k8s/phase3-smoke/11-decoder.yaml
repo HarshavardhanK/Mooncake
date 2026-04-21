@@ -1,0 +1,153 @@
+# Phase 3 smoke — SGLang decoder (kv_consumer-equivalent role).
+#
+# Runs on g126, same node as the prefiller. Mounts the same Phase 1 model
+# PVC read-only (RWO PVCs allow multiple read-only mounts on the same node).
+# Exposes:
+#   - 30001/tcp on a different Service (decoder.default.svc) so the router
+#     can address prefiller and decoder by distinct DNS names without port
+#     collisions.
+#
+# Mooncake KV transfer:
+#   The decoder's SGLang process opens a Mooncake transfer engine endpoint
+#   that connects back to the prefiller's bootstrap port (8998 on
+#   prefiller.default.svc). Both sides use protocol=tcp via env. RDMA is
+#   intentionally NOT used here even if HCAs are exposed in the cluster —
+#   the smoke needs to exercise the same TCP path Phase 3 cross-DC uses.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: decoder-phase3-smoke
+  namespace: default
+  labels:
+    prfaas.experiment/phase: "3-smoke"
+    prfaas.role: kv_consumer
+    app.kubernetes.io/part-of: prfaas
+    app: decoder-phase3-smoke
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: decoder-phase3-smoke
+  template:
+    metadata:
+      labels:
+        app: decoder-phase3-smoke
+        prfaas.role: kv_consumer
+        prfaas.experiment/phase: "3-smoke"
+        app.kubernetes.io/part-of: prfaas
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: g126
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: model
+          persistentVolumeClaim:
+            claimName: model-weights-phase1
+            readOnly: true
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Gi
+      containers:
+        - name: sglang-decoder
+          image: lmsysorg/sglang:v0.5.9-cu129-amd64
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: prfaas-phase3-smoke-env
+          env:
+            - name: PRFAAS_GPU
+              value: "H100 80GB SXM5"
+            - name: NCCL_DEBUG
+              value: "WARN"
+            - name: MC_TCP_ENABLE_CONNECTION_POOL
+              value: "1"
+            - name: MC_LEGACY_RPC_PORT_BINDING
+              value: "1"
+            # Decoder needs to know where the prefiller's bootstrap is. We
+            # pass it via env so the smoke and xdc variants share one
+            # decoder template (xdc overrides this to the X public IP).
+            - name: PREFILLER_BOOTSTRAP_HOST
+              value: "prefiller.default.svc.cluster.local"
+          command: ["bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[decoder-smoke] launching SGLang"
+              echo "[decoder-smoke] model:    ${MODEL_LOCAL_DIR}"
+              echo "[decoder-smoke] tp:       ${TP_SIZE}"
+              echo "[decoder-smoke] api:      :${PRFAAS_SGLANG_API_PORT}"
+              echo "[decoder-smoke] prefill bootstrap: ${PREFILLER_BOOTSTRAP_HOST}:${MOONCAKE_BOOTSTRAP_PORT}"
+
+              if [[ ! -f "${MODEL_LOCAL_DIR}/config.json" ]]; then
+                echo "[decoder-smoke] FATAL: ${MODEL_LOCAL_DIR}/config.json missing."
+                echo "[decoder-smoke] Apply Phase 1's 02-model-staging-job-kimi.yaml first."
+                exit 11
+              fi
+
+              echo "[decoder-smoke] installing fla-core (Kimi-Linear KDA kernels)"
+              pip install --no-cache-dir --quiet "fla-core>=${FLA_CORE_VERSION}"
+
+              # Wait for the prefiller to be reachable. The router would do this
+              # too, but failing here gives a much faster diagnostic.
+              echo "[decoder-smoke] waiting for prefiller bootstrap port"
+              for i in $(seq 1 60); do
+                if (echo > "/dev/tcp/${PREFILLER_BOOTSTRAP_HOST}/${MOONCAKE_BOOTSTRAP_PORT}") 2>/dev/null; then
+                  echo "[decoder-smoke] prefiller bootstrap up after ${i} attempts"
+                  break
+                fi
+                sleep 5
+              done
+
+              # See ENGINE_DECISION.md §Open items for flag-verification
+              # procedure. Decoder side does not need --disaggregation-bootstrap-port
+              # (it dials the prefiller's bootstrap, not listens on its own).
+              exec python3 -m sglang.launch_server \
+                --model-path "${MODEL_LOCAL_DIR}" \
+                --served-model-name "${SERVED_MODEL_NAME}" \
+                --host 0.0.0.0 \
+                --port "${PRFAAS_SGLANG_API_PORT}" \
+                --tp "${TP_SIZE}" \
+                --trust-remote-code \
+                --mem-fraction-static 0.65 \
+                --disable-radix-cache \
+                --disaggregation-mode decode \
+                --disaggregation-transfer-backend mooncake \
+                --log-level info
+          ports:
+            - name: api
+              containerPort: 30001
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 30001
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "8"
+              memory: 64Gi
+              nvidia.com/gpu: "4"
+            limits:
+              cpu: "16"
+              memory: 128Gi
+              nvidia.com/gpu: "4"
+          volumeMounts:
+            - name: model
+              mountPath: /models
+              readOnly: true
+            - name: dshm
+              mountPath: /dev/shm
